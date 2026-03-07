@@ -38,17 +38,12 @@ local               CAMSmoothing   = 0.22
 local               HRPSmoothing   = 0.18
 local               chanceActive   = false       -- Aimbot on or off
 local                 TargetMode   = "HRP"       -- Default to HRP (HumanoidRootPart)
-local chanceAimAnimationIds = { 
- "133491532453922", --[[ Chance (M1-M2) ]]
- "133607163653602", --[[ Chance (M3-M4) ]]
- "76649505662612",  --[[    MLG Chance  ]] 
- "86371356500204",  --[[      Retro     ]]
- "131189930305001", --[[    Nutcracker  ]]
- "103601716322988", --[[     Outlaw     ]]
- "111384272984267", --[[ Big Game Hunter]]
- "74687476269316",  --[[     Unknown    ]]
- "111512633767170", --[[     Unknown    ]] 
- "81698196845041",  --[[     Unknown    ]]
+local chanceAimAnimationIds = {  
+ "133491532453922", --[[ Chance (M1-M2) ]] "133607163653602", --[[ Chance (M3-M4) ]]
+ "76649505662612",  --[[    MLG Chance  ]] "86371356500204",  --[[      Retro     ]]
+ "131189930305001", --[[    Nutcracker  ]] "103601716322988", --[[     Outlaw     ]]
+ "111384272984267", --[[ Big Game Hunter]] "74687476269316",  --[[     Unknown    ]]
+ "111512633767170", --[[     Unknown    ]] "81698196845041",  --[[     Unknown    ]]
 }
 
 
@@ -56,42 +51,7 @@ local chanceAimAnimationIds = {
 
 
 
--- Separate Ping Prediction Logic for Each Mode
-local function predictPositionSnap(targetHRP)
-if not targetHRP then return nil end
-local pingMs          = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
-local latencySeconds  = (pingMs / 1000) + pingPredictionSnap
-local velocity        = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
-if velocity.Magnitude > chanceMovementThreshold then
-local pingPrediction  = targetHRP.Position + (velocity * latencySeconds)
-return pingPrediction 
-end
-return targetHRP.Position 
-end
 
-local function predictPositionHRP(targetHRP)
-if not targetHRP then return nil end
-local pingMs          = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
-local latencySeconds  = (pingMs / 1000) + pingPredictionHRP
-local velocity        = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
-if velocity.Magnitude > chanceMovementThreshold then
-local pingPrediction  = targetHRP.Position + (velocity * latencySeconds)
-return pingPrediction 
-end
-return targetHRP.Position 
-end
-
-local function predictPositionCam(targetHRP)
-if not targetHRP then return nil end
-local          pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
-local  latencySeconds = (pingMs / 1000) + pingPredictionCam
-local        velocity = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
-if velocity.Magnitude > chanceMovementThreshold then
-local  pingPrediction = targetHRP.Position + (velocity * latencySeconds) 
-return pingPrediction 
-end
-return targetHRP.Position 
-end
 
 
 
@@ -163,8 +123,8 @@ local SnapPredictionSlider = ChanceTab:CreateSlider({
    Suffix = " seconds",
    CurrentValue = 0.00,  -- Initial value
    Flag = "SnapPingPredictionFlag",  -- Separate flag for Snap
-   Callback = function(value)
-       pingPredictionSnap = value
+   Callback = function(value112)
+       pingPredictionSnap = value112
    end,
 })
 
@@ -176,8 +136,8 @@ local HRPPredictionSlider = ChanceTab:CreateSlider({
    Suffix = " sec",
    CurrentValue = 0.23,  -- Initial value
    Flag = "HRPPingPredictionFlag",  -- Separate flag for HRP
-   Callback = function(value)
-       pingPredictionHRP = value
+   Callback = function(value212)
+       pingPredictionHRP = value212
    end,
 })
 
@@ -189,8 +149,8 @@ local CamPredictionSlider = ChanceTab:CreateSlider({
    Suffix = " sec",
    CurrentValue = 0.23,  -- Initial value
    Flag = "CamPingPredictionFlag",  -- Separate flag for Cam
-   Callback = function(value)
-       pingPredictionCam = value
+   Callback = function(value221)
+       pingPredictionCam = value221
    end,
 })
 
@@ -374,8 +334,45 @@ local function chancePredictPosition(targetHRP)
         local pingPrediction = targetHRP.Position + (velocity * latencySeconds)
         
         -- Add extra manual prediction based on dropdown selection
-        
-        -- Beta
+-- beta2
+        -- Separate Ping Prediction Logic for Each Mode
+local function predictPositionSnap(targetHRP)
+if not targetHRP then return nil end
+local pingMs          = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
+local latencySeconds  = (pingMs / 1000) + pingPredictionSnap
+local velocity        = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
+if velocity.Magnitude > chanceMovementThreshold then
+local pingPrediction  = targetHRP.Position + (velocity * latencySeconds)
+return pingPrediction 
+end
+return targetHRP.Position 
+end
+
+local function predictPositionHRP(targetHRP)
+if not targetHRP then return nil end
+local pingMs          = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
+local latencySeconds  = (pingMs / 1000) + pingPredictionHRP
+local velocity        = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
+if velocity.Magnitude > chanceMovementThreshold then
+local pingPrediction  = targetHRP.Position + (velocity * latencySeconds)
+return pingPrediction 
+end
+return targetHRP.Position 
+end
+
+local function predictPositionCam(targetHRP)
+if not targetHRP then return nil end
+local          pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
+local  latencySeconds = (pingMs / 1000) + pingPredictionCam
+local        velocity = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
+if velocity.Magnitude > chanceMovementThreshold then
+local  pingPrediction = targetHRP.Position + (velocity * latencySeconds) 
+return pingPrediction 
+end
+return targetHRP.Position 
+end
+-- beta2
+        -- Beta1
         local extraStuds
 
 if chancePredictionMode == "Custom + Ping" then
@@ -383,7 +380,7 @@ if chancePredictionMode == "Custom + Ping" then
 else
     extraStuds = chancePredictionModes[chancePredictionMode] or 0
 end
--- beta
+-- beta1
 
 local direction = velocity.Magnitude > 0 and velocity.Unit or Vector3.zero
 --
@@ -522,6 +519,83 @@ Higher value = snappier
 game.Players.LocalPlayer:Kick("Kicked")
 end})
 
+
+
+
+
+
+-- Create a new tab for Stats
+local StatsTab = Window:CreateTab("Stats", "stats") -- Title, Image
+
+-- Create a new section for the stats display
+local StatsSection = StatsTab:CreateSection("Current Stats")
+
+-- Create labels for the stats we want to track (Initially hidden)
+local PingLabel = StatsTab:CreateLabel("Ping: Loading...")
+local TargetModeLabel = StatsTab:CreateLabel("Target Mode: Loading...")
+local MovementThresholdLabel = StatsTab:CreateLabel("Movement Threshold: Loading...")
+local AimDurationLabel = StatsTab:CreateLabel("Aim Duration: Loading...")
+local ClosestDistanceLabel = StatsTab:CreateLabel("Closest Distance to Disable: Loading...")
+local PredictionModeLabel = StatsTab:CreateLabel("Prediction Mode: Loading...")
+
+-- Hide the labels initially
+PingLabel:SetVisible(false)
+TargetModeLabel:SetVisible(false)
+MovementThresholdLabel:SetVisible(false)
+AimDurationLabel:SetVisible(false)
+ClosestDistanceLabel:SetVisible(false)
+PredictionModeLabel:SetVisible(false)
+
+-- Function to update the stats and make them visible
+local function updateStats()
+    -- Get ping value
+    local pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
+    local pingSec = pingMs / 1000
+    PingLabel:SetText("Ping: " .. string.format("%.2f", pingSec) .. " seconds")
+    
+    -- Get the current target mode (HRP, Snap, or Cam)
+    TargetModeLabel:SetText("Target Mode: " .. TargetMode)
+    
+    -- Show the current movement threshold
+    MovementThresholdLabel:SetText("Movement Threshold: " .. string.format("%.2f", chanceMovementThreshold) .. " studs")
+    
+    -- Show the current aim duration
+    AimDurationLabel:SetText("Aim Duration: " .. string.format("%.2f", chanceAimDuration) .. " seconds")
+    
+    -- Show the closest distance to disable (closeness value)
+    ClosestDistanceLabel:SetText("Closest Distance to Disable: " .. string.format("%.2f", ChanceClosenesstoDisable) .. " studs")
+    
+    -- Show the current prediction mode
+    PredictionModeLabel:SetText("Prediction Mode: " .. chancePredictionMode)
+    
+    -- Make labels visible after updating them
+    PingLabel:SetVisible(true)
+    TargetModeLabel:SetVisible(true)
+    MovementThresholdLabel:SetVisible(true)
+    AimDurationLabel:SetVisible(true)
+    ClosestDistanceLabel:SetVisible(true)
+    PredictionModeLabel:SetVisible(true)
+end
+
+-- Create a button to toggle stats visibility
+local StatsButton = StatsTab:CreateButton({
+    Name = "Toggle Stats",
+    Callback = function()
+        -- If the stats are visible, hide them; otherwise, update and show them
+        if PingLabel:IsVisible() then
+            -- Hide stats
+            PingLabel:SetVisible(false)
+            TargetModeLabel:SetVisible(false)
+            MovementThresholdLabel:SetVisible(false)
+            AimDurationLabel:SetVisible(false)
+            ClosestDistanceLabel:SetVisible(false)
+            PredictionModeLabel:SetVisible(false)
+        else
+            -- Update stats and show them
+            updateStats()
+        end
+    end
+})
 
 
 
