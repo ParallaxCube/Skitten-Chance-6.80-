@@ -14,6 +14,7 @@ local        chanceActiveTrack = nil
 local                   camera = workspaceService.CurrentCamera
 
 -- Separate Ping Prediction Variables for Each Mode
+
 local pingPredictionSnap = 0
 local pingPredictionHRP = 0
 local pingPredictionCam = 0
@@ -23,15 +24,15 @@ local customHRPPing = 0
 local customCamPing = 0
 
 -- config(s) Added
+local          ChanceStudsActive   = 0.5
+local        pingpredictionstuds   = 0 -- idk if this is right
 local PingpredictionAddedSeconds   = tonumber(pingpredictionstuds) or 0  -- Convert to number
 local   ChanceClosenesstoDisable   = 6   -- When killer is closer than this in studs aimbot shuts off.
 local    chanceMovementThreshold   = tonumber(ChanceStudsActive)  -- Convert to number  -- When KILLER is slower than this aimbot just chills
 local     CustomStudsAddedToPing   = 0    
 local      chanceLastTriggerTime   = 0 -- last time animation happend
 local       chancePredictionMode   = "Ping Only"
-local        pingpredictionstuds   = 0 -- idk if this is right
 local          chanceAimDuration   = 1.6  -- how long to aim
-local          ChanceStudsActive   = 0.5
 local           chanceAimTargets   = {"Slasher","c00lkidd","JohnDoe", "1x1x1x1","Noli","Sixer","Nosferatu"}
 local             closenessValue   = 6
 local               CAMSmoothing   = 0.22
@@ -62,7 +63,7 @@ local chanceAimAnimationIds = {
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-                  Name = "Version 6.103(+)",
+                  Name = "Version 6.78(-)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
@@ -411,13 +412,7 @@ local function chanceCheckAimAnimation()
     return false
 end
 
-
-
-
-
-
 -- Main aim loop
--- Main aim loop \/  \/  \/
 runService.RenderStepped:Connect(function()
     -- Early exit if not aiming or missing required references
     if not chanceActive or not chancePlayerHumanoid or not chancePlayerHRP then
@@ -464,7 +459,7 @@ runService.RenderStepped:Connect(function()
         local predicted = nil
 
         if TargetMode == "Snap" then
-            predicted = predictPositionSnap(targetHRP)  -- Snap Mode prediction
+            predicted = predictPositionSnap(targetHRP)-- Snap Mode prediction
         elseif TargetMode == "HRP" then
             predicted = predictPositionHRP(targetHRP)   -- HRP Mode prediction
         elseif TargetMode == "Cam" then
@@ -519,93 +514,41 @@ Higher value = snappier
 game.Players.LocalPlayer:Kick("Kicked")
 end})
 
-
-
-
-
-
--- Create a new tab for Stats
-local StatsTab = Window:CreateTab("Stats", "stats") -- Title, Image
-
--- Create a new section for the stats display
-local StatsSection = StatsTab:CreateSection("Current Stats")
-
--- Create labels for the stats we want to track (Initially hidden)
-local PingLabel = StatsTab:CreateLabel("Ping: Loading...")
-local TargetModeLabel = StatsTab:CreateLabel("Target Mode: Loading...")
-local MovementThresholdLabel = StatsTab:CreateLabel("Movement Threshold: Loading...")
-local AimDurationLabel = StatsTab:CreateLabel("Aim Duration: Loading...")
-local ClosestDistanceLabel = StatsTab:CreateLabel("Closest Distance to Disable: Loading...")
-local PredictionModeLabel = StatsTab:CreateLabel("Prediction Mode: Loading...")
-
--- Hide the labels initially
-PingLabel:SetVisible(false)
-TargetModeLabel:SetVisible(false)
-MovementThresholdLabel:SetVisible(false)
-AimDurationLabel:SetVisible(false)
-ClosestDistanceLabel:SetVisible(false)
-PredictionModeLabel:SetVisible(false)
-
--- Function to update the stats and make them visible
-local function updateStats()
-    -- Get ping value
-    local pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
-    local pingSec = pingMs / 1000
-    PingLabel:SetText("Ping: " .. string.format("%.2f", pingSec) .. " seconds")
-    
-    -- Get the current target mode (HRP, Snap, or Cam)
-    TargetModeLabel:SetText("Target Mode: " .. TargetMode)
-    
-    -- Show the current movement threshold
-    MovementThresholdLabel:SetText("Movement Threshold: " .. string.format("%.2f", chanceMovementThreshold) .. " studs")
-    
-    -- Show the current aim duration
-    AimDurationLabel:SetText("Aim Duration: " .. string.format("%.2f", chanceAimDuration) .. " seconds")
-    
-    -- Show the closest distance to disable (closeness value)
-    ClosestDistanceLabel:SetText("Closest Distance to Disable: " .. string.format("%.2f", ChanceClosenesstoDisable) .. " studs")
-    
-    -- Show the current prediction mode
-    PredictionModeLabel:SetText("Prediction Mode: " .. chancePredictionMode)
-    
-    -- Make labels visible after updating them
-    PingLabel:SetVisible(true)
-    TargetModeLabel:SetVisible(true)
-    MovementThresholdLabel:SetVisible(true)
-    AimDurationLabel:SetVisible(true)
-    ClosestDistanceLabel:SetVisible(true)
-    PredictionModeLabel:SetVisible(true)
-end
-
--- Create a button to toggle stats visibility
-local StatsButton = StatsTab:CreateButton({
-    Name = "Toggle Stats",
+-- Add this button to your "ChanceTab" UI to print all the local variables
+InterfaceTab:CreateButton({
+    Name = "Print All Locals",  -- Button name
     Callback = function()
-        -- If the stats are visible, hide them; otherwise, update and show them
-        if PingLabel:IsVisible() then
-            -- Hide stats
-            PingLabel:SetVisible(false)
-            TargetModeLabel:SetVisible(false)
-            MovementThresholdLabel:SetVisible(false)
-            AimDurationLabel:SetVisible(false)
-            ClosestDistanceLabel:SetVisible(false)
-            PredictionModeLabel:SetVisible(false)
-        else
-            -- Update stats and show them
-            updateStats()
-        end
+        -- Print all your local variables and their current values
+        print("=== Local Variables ===")
+        
+        -- Example local variables from your script:
+        print("chanceActive = " .. tostring(chanceActive))
+        print("chancePredictionMode = " .. tostring(chancePredictionMode))
+        print("chanceAimDuration = " .. tostring(chanceAimDuration))
+        print("chanceMovementThreshold = " .. tostring(chanceMovementThreshold))
+        print("chanceAimTargets = " .. table.concat(chanceAimTargets, ", "))  -- Print the table contents
+        print("ChanceClosenesstoDisable = " .. tostring(ChanceClosenesstoDisable))
+        print("CAMSmoothing = " .. tostring(CAMSmoothing))
+        print("HRPSmoothing = " .. tostring(HRPSmoothing))
+        print("TargetMode = " .. tostring(TargetMode))
+        print("CustomStudsAddedToPing = " .. tostring(CustomStudsAddedToPing))
+        print("PingpredictionAddedSeconds = " .. tostring(PingpredictionAddedSeconds))
+        print("chanceLastTriggerTime = " .. tostring(chanceLastTriggerTime))
+        
+        -- Ping prediction values for each mode
+        print("pingPredictionSnap = " .. tostring(pingPredictionSnap))
+        print("pingPredictionHRP = " .. tostring(pingPredictionHRP))
+        print("pingPredictionCam = " .. tostring(pingPredictionCam))
+        
+        -- Other ping-related variables
+        print("customSnapPing = " .. tostring(customSnapPing))
+        print("customHRPPing = " .. tostring(customHRPPing))
+        print("customCamPing = " .. tostring(customCamPing))
+        
+        -- More variables if needed, adjust as per your script
+        print("========================")
     end
 })
-
-
-
-
-
-
-
- 
-
 Rayfield:LoadConfiguration()
--- loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/Skitten-Chance-6.80-/9ea15beb2edcc56b2da1048306e8c3d70455bfff/6.82v'))()
 
 
