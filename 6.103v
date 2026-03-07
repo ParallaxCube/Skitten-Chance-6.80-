@@ -62,7 +62,7 @@ local chanceAimAnimationIds = {
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-                  Name = "Version 6.78(-)",
+                  Name = "Version 6.103(+)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
