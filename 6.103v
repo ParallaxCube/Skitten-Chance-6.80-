@@ -13,6 +13,17 @@ local             chanceAiming = false
 local        chanceActiveTrack = nil
 local                   camera = workspaceService.CurrentCamera
 
+--beta5
+local killerMarkerEnabled = false
+local killerMarkerFolder = workspaceService:FindFirstChild("KillerMarkers") or Instance.new("Folder", workspaceService)
+killerMarkerFolder.Name = "KillerMarkers"
+--beta5
+
+local        pingpredictionstuds   = 0 -- Dev ping touch
+local PingpredictionAddedSeconds   = tonumber(pingpredictionstuds) or 0  -- Convert to number
+-- No further work needed on these above
+
+
 -- Separate Ping Prediction Variables for Each Mode
 
 local pingPredictionSnap = 0
@@ -25,8 +36,6 @@ local customCamPing = 0
 
 -- config(s) Added
 local          ChanceStudsActive   = 0.5
-local        pingpredictionstuds   = 0 -- idk if this is right
-local PingpredictionAddedSeconds   = tonumber(pingpredictionstuds) or 0  -- Convert to number
 local   ChanceClosenesstoDisable   = 6   -- When killer is closer than this in studs aimbot shuts off.
 local    chanceMovementThreshold   = tonumber(ChanceStudsActive)  -- Convert to number  -- When KILLER is slower than this aimbot just chills
 local     CustomStudsAddedToPing   = 0    
@@ -54,6 +63,52 @@ local chanceAimAnimationIds = {
 
 
 
+-- beta2
+        -- Separate Ping Prediction Logic for Each Mode
+local function predictPositionSnap(targetHRP)
+if not targetHRP then return nil end
+local pingMs          = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
+local latencySeconds  = (pingMs / 1000) + pingPredictionSnap
+local velocity        = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
+if velocity.Magnitude > chanceMovementThreshold then
+local pingPrediction  = targetHRP.Position + (velocity * latencySeconds)
+return pingPrediction 
+end
+return targetHRP.Position 
+end
+
+local function predictPositionHRP(targetHRP)
+if not targetHRP then return nil end
+local pingMs          = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
+local latencySeconds  = (pingMs / 1000) + pingPredictionHRP
+local velocity        = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
+if velocity.Magnitude > chanceMovementThreshold then
+local pingPrediction  = targetHRP.Position + (velocity * latencySeconds)
+return pingPrediction 
+end
+return targetHRP.Position 
+end
+
+local function predictPositionCam(targetHRP)
+if not targetHRP then return nil end
+local          pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
+local  latencySeconds = (pingMs / 1000) + pingPredictionCam
+local        velocity = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
+if velocity.Magnitude > chanceMovementThreshold then
+local  pingPrediction = targetHRP.Position + (velocity * latencySeconds) 
+return pingPrediction 
+end
+return targetHRP.Position 
+end
+-- beta2
+
+
+
+
+
+
+
+
 
 
 
@@ -63,7 +118,7 @@ local chanceAimAnimationIds = {
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-                  Name = "Version 6.78(-)",
+                  Name = "Version 6.128(+)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
@@ -309,7 +364,8 @@ playersService.LocalPlayer.CharacterAdded:Connect(chanceConfigureCharacter)
 -- Find valid killer target
 local function chanceFindValidTarget()
  local killersFolder = workspaceService:FindFirstChild("Players") and workspaceService.Players:FindFirstChild("Killers")
-if not killersFolder then return nil end
+if not killersFolder then return nil 
+  end
 for _, name in ipairs(chanceAimTargets) do
 local target = killersFolder:FindFirstChild(name) 
          if target and target:FindFirstChild("HumanoidRootPart") then
@@ -335,44 +391,7 @@ local function chancePredictPosition(targetHRP)
         local pingPrediction = targetHRP.Position + (velocity * latencySeconds)
         
         -- Add extra manual prediction based on dropdown selection
--- beta2
-        -- Separate Ping Prediction Logic for Each Mode
-local function predictPositionSnap(targetHRP)
-if not targetHRP then return nil end
-local pingMs          = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
-local latencySeconds  = (pingMs / 1000) + pingPredictionSnap
-local velocity        = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
-if velocity.Magnitude > chanceMovementThreshold then
-local pingPrediction  = targetHRP.Position + (velocity * latencySeconds)
-return pingPrediction 
-end
-return targetHRP.Position 
-end
 
-local function predictPositionHRP(targetHRP)
-if not targetHRP then return nil end
-local pingMs          = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
-local latencySeconds  = (pingMs / 1000) + pingPredictionHRP
-local velocity        = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
-if velocity.Magnitude > chanceMovementThreshold then
-local pingPrediction  = targetHRP.Position + (velocity * latencySeconds)
-return pingPrediction 
-end
-return targetHRP.Position 
-end
-
-local function predictPositionCam(targetHRP)
-if not targetHRP then return nil end
-local          pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
-local  latencySeconds = (pingMs / 1000) + pingPredictionCam
-local        velocity = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
-if velocity.Magnitude > chanceMovementThreshold then
-local  pingPrediction = targetHRP.Position + (velocity * latencySeconds) 
-return pingPrediction 
-end
-return targetHRP.Position 
-end
--- beta2
         -- Beta1
         local extraStuds
 
@@ -411,6 +430,51 @@ local function chanceCheckAimAnimation()
     end
     return false
 end
+
+-- beta3
+local function SnapMode(targetHRP, hrpPos, predicted)
+    chancePlayerHRP.CFrame = CFrame.lookAt(hrpPos, predicted)
+end
+
+local function HRPMode(targetHRP, hrpPos, predicted)
+    local targetCF = CFrame.lookAt(hrpPos, predicted)
+    chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, HRPSmoothing)
+end
+
+local function CamMode(targetHRP, hrpPos, predicted)
+    local camCF = CFrame.lookAt(camera.CFrame.Position, predicted)
+    camera.CFrame = camera.CFrame:Lerp(camCF, CAMSmoothing)
+end
+-- beta3
+
+
+
+
+
+
+--beta7
+local function createKillerMarker(targetHRP, name)
+    if not targetHRP then return end
+
+    local marker = Instance.new("BillboardGui")
+    marker.Name = name.."Marker"
+    marker.Adornee = targetHRP
+    marker.Size = UDim2.new(0, 40, 0, 40)
+    marker.StudsOffset = Vector3.new(0, 3, 0)
+    marker.AlwaysOnTop = true
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1,0,1,0)
+    frame.BackgroundColor3 = Color3.fromRGB(255,0,0)
+    frame.BackgroundTransparency = 0.4
+    frame.BorderSizePixel = 0
+    frame.Parent = marker
+
+    marker.Parent = killerMarkerFolder
+
+    return marker
+end
+--beta7
 
 -- Main aim loop
 runService.RenderStepped:Connect(function()
@@ -513,6 +577,56 @@ Higher value = snappier
 
 game.Players.LocalPlayer:Kick("Kicked")
 end})
+
+InterfaceTab:CreateToggle({
+   Name = "Killer Range Marker (1-90 studs)",
+   CurrentValue = false,
+   Flag = "KillerMarkerToggle",
+   Callback = function(state)
+        killerMarkerEnabled = state
+   end,
+})
+runService.RenderStepped:Connect(function()
+    if not killerMarkerEnabled then
+        for _, v in pairs(killerMarkerFolder:GetChildren()) do
+            v.Enabled = false
+        end
+        return
+    end
+
+    if not chancePlayerHRP then return end
+
+    local killersFolder = workspaceService:FindFirstChild("Players") and workspaceService.Players:FindFirstChild("Killers")
+    if not killersFolder then return end
+
+    local existingMarkers = {}
+
+    for _, killer in pairs(killersFolder:GetChildren()) do
+        local hrp = killer:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dist = (hrp.Position - chancePlayerHRP.Position).Magnitude
+            local marker = killerMarkerFolder:FindFirstChild(killer.Name.."Marker")
+
+            -- ✅ Handle respawn safely
+            if not marker or marker.Adornee ~= hrp then
+                if marker then marker:Destroy() end
+                marker = createKillerMarker(hrp, killer.Name)
+            end
+
+            marker.Enabled = dist >= 1 and dist <= 90
+            existingMarkers[killer.Name.."Marker"] = true
+        end
+    end
+
+    -- Clean up old markers
+    for _, marker in pairs(killerMarkerFolder:GetChildren()) do
+        if not existingMarkers[marker.Name] then
+            marker:Destroy()
+        end
+    end
+end)
+
+
 
 -- Add this button to your "ChanceTab" UI to print all the local variables
 InterfaceTab:CreateButton({
