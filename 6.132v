@@ -19,7 +19,7 @@ local killerMarkerFolder = workspaceService:FindFirstChild("KillerMarkers") or I
 killerMarkerFolder.Name = "KillerMarkers"
 --beta5
 
-local        pingpredictionstuds   = 0 -- Dev ping touch
+local        pingpredictionstuds   = 0.10 -- Dev ping touch
 local PingpredictionAddedSeconds   = tonumber(pingpredictionstuds) or 0  -- Convert to number
 -- No further work needed on these above
 
@@ -35,7 +35,7 @@ local customHRPPing = 0
 local customCamPing = 0
 
 -- config(s) Added
-local          ChanceStudsActive   = 0.5
+local          ChanceStudsActive   = 0.7
 local   ChanceClosenesstoDisable   = 6   -- When killer is closer than this in studs aimbot shuts off.
 local    chanceMovementThreshold   = tonumber(ChanceStudsActive)  -- Convert to number  -- When KILLER is slower than this aimbot just chills
 local     CustomStudsAddedToPing   = 0    
@@ -56,25 +56,19 @@ local chanceAimAnimationIds = {
  "111512633767170", --[[     Unknown    ]] "81698196845041",  --[[     Unknown    ]]
 }
 
-
-
-
-
-
-
-
 -- beta2
         -- Separate Ping Prediction Logic for Each Mode
 local function predictPositionSnap(targetHRP)
 if not targetHRP then return nil end
-local pingMs          = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
-local latencySeconds  = (pingMs / 1000) + pingPredictionSnap
-local velocity        = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
+local pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
+local latencySeconds = (pingMs / 1000) + pingPredictionSnap
+local velocity = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
 if velocity.Magnitude > chanceMovementThreshold then
-local pingPrediction  = targetHRP.Position + (velocity * latencySeconds)
-return pingPrediction 
+local pingPrediction = targetHRP.Position + (velocity * latencySeconds)
+pingPrediction += velocity.Unit * math.clamp(velocity.Magnitude * 0.004, 0, 0.18)
+return pingPrediction
 end
-return targetHRP.Position 
+return targetHRP.Position
 end
 
 local function predictPositionHRP(targetHRP)
@@ -91,15 +85,20 @@ end
 
 local function predictPositionCam(targetHRP)
 if not targetHRP then return nil end
-local          pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
-local  latencySeconds = (pingMs / 1000) + pingPredictionCam
-local        velocity = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
+
+local pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
+local latencySeconds = (pingMs / 1000) + pingPredictionCam
+local velocity = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
+
 if velocity.Magnitude > chanceMovementThreshold then
-local  pingPrediction = targetHRP.Position + (velocity * latencySeconds) 
-return pingPrediction 
+local pingPrediction = targetHRP.Position + (velocity * latencySeconds)
+pingPrediction += velocity.Unit * math.clamp(velocity.Magnitude * 0.004, 0, 0.18)
+return pingPrediction
 end
-return targetHRP.Position 
+
+return targetHRP.Position
 end
+
 -- beta2
 
 
@@ -118,7 +117,7 @@ end
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-                  Name = "Version 6.128(+)",
+                  Name = "Version 6.111(+)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
@@ -163,21 +162,27 @@ local AimToggle = ChanceTab:CreateToggle({
   CurrentValue = false,
   Flag = "Aimbot_One_Shot",
   Callback = function(AimAssistToggled) 
-    chanceActive = AimAssistToggled 
+  chanceActive = AimAssistToggled 
   end,})
   
+  local ForcedAimBotToggle = ChanceTab:CreateToggle({
+   Name = "Force Aim",
+   CurrentValue = false,
+   Flag = "ForcedAimBot", -- A flag is the identifier for the configuration file; make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(ForceCmd)
+    chanceAiming = ForceCmd
+
+end,})
   
-  
-  
-  
-  
+
   -- Ping Prediction Slider for Snap Mode
 local SnapPredictionSlider = ChanceTab:CreateSlider({
    Name = "Snap Mode Ping Prediction",
    Range = {0, 1.5},
    Increment = 0.01,
-   Suffix = " seconds",
-   CurrentValue = 0.00,  -- Initial value
+   Suffix = " sec",
+   CurrentValue = 0.00,  
+   
    Flag = "SnapPingPredictionFlag",  -- Separate flag for Snap
    Callback = function(value112)
        pingPredictionSnap = value112
@@ -190,7 +195,7 @@ local HRPPredictionSlider = ChanceTab:CreateSlider({
    Range = {0, 1.5},
    Increment = 0.01,
    Suffix = " sec",
-   CurrentValue = 0.23,  -- Initial value
+   CurrentValue = 0.00,  
    Flag = "HRPPingPredictionFlag",  -- Separate flag for HRP
    Callback = function(value212)
        pingPredictionHRP = value212
@@ -203,18 +208,12 @@ local CamPredictionSlider = ChanceTab:CreateSlider({
    Range = {0, 1.5},
    Increment = 0.01,
    Suffix = " sec",
-   CurrentValue = 0.23,  -- Initial value
+   CurrentValue = 0.00,  
    Flag = "CamPingPredictionFlag",  -- Separate flag for Cam
    Callback = function(value221)
        pingPredictionCam = value221
    end,
 })
-
-
-
-
-
-
 
 
 -- Dropdown for selecting target mode (HRP or Camera)
@@ -318,38 +317,14 @@ local AdvancedSystemInputs3 = ChanceTab:CreateInput({
 
 local AdvancedSystemInputs4 = ChanceTab:CreateInput({
    Name = "KillerMovementDetection (Advanced)", 
-   CurrentValue    = "0.5",
-   PlaceholderText = "0.5",
+   CurrentValue    = "0.7",
+   PlaceholderText = "0.7",
    RemoveTextAfterFocusLost = false,
    Flag = "KillerMovementDetectionInput", -- Updated Flag
    Callback = function(ChanceStudsActive)
-      chanceMovementThreshold = tonumber(ChanceStudsActive) or 0.5
+      chanceMovementThreshold = tonumber(ChanceStudsActive) or 0.7
    end,
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 -- Setup character references
@@ -363,34 +338,13 @@ playersService.LocalPlayer.CharacterAdded:Connect(chanceConfigureCharacter)
 
 -- Find valid killer target
 local function chanceFindValidTarget()
- local killersFolder = workspaceService:FindFirstChild("Players") and workspaceService.Players:FindFirstChild("Killers")
-if not killersFolder then return nil 
-  end
+local killersFolder = workspaceService:FindFirstChild("Players") and workspaceService.Players:FindFirstChild("Killers")
+if not killersFolder then return nil end
 for _, name in ipairs(chanceAimTargets) do
 local target = killersFolder:FindFirstChild(name) 
-         if target and target:FindFirstChild("HumanoidRootPart") then
-           return target.HumanoidRootPart 
-  end
-    end
-return nil
-          end
-
-
--- Ping-based prediction with optional extra lead
-local function chancePredictPosition(targetHRP)
-    if not targetHRP then return nil end
-
-    -- Get ping compensation
-    local pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
-    local latencySeconds = pingMs / 1000 + PingpredictionAddedSeconds
-    local velocity = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
-   -- local velocity = targetHRP.AssemblyLinearVelocity
-
-    if velocity.Magnitude > chanceMovementThreshold then
-        -- Ping-based prediction
-        local pingPrediction = targetHRP.Position + (velocity * latencySeconds)
-        
-        -- Add extra manual prediction based on dropdown selection
+ if target and target:FindFirstChild("HumanoidRootPart") then return target.HumanoidRootPart 
+end end return nil 
+end
 
         -- Beta1
         local extraStuds
@@ -570,12 +524,12 @@ InterfaceTab:CreateSection("UI Functions")
 InterfaceTab:CreateButton({
     Name = "kick",
     Callback = function()
-print[[
- Lower value = smoother
+print([[
+Lower value = smoother
 Higher value = snappier
-]]
+]])
 
-game.Players.LocalPlayer:Kick("Kicked")
+game.Players.LocalPlayer:Kick("GOT YA!")
 end})
 
 InterfaceTab:CreateToggle({
@@ -665,4 +619,22 @@ InterfaceTab:CreateButton({
 })
 Rayfield:LoadConfiguration()
 
+
+
+
+--[[
+old code
+
+-- Ping-based prediction with optional extra lead
+local function chancePredictPosition(targetHRP)
+    if not targetHRP then return nil end
+    -- Get ping compensation
+    local pingMs = statsService.Network.ServerStatsItem["Data Ping"]:GetValue()
+    local latencySeconds = pingMs / 1000 + PingpredictionAddedSeconds
+    local velocity = targetHRP.AssemblyLinearVelocity or targetHRP.Velocity
+   -- local velocity = targetHRP.AssemblyLinearVelocity
+    if velocity.Magnitude > chanceMovementThreshold then
+        -- Ping-based prediction
+        local pingPrediction = targetHRP.Position + (velocity * latencySeconds)
+        -- Add extra manual prediction based on dropdown selection]]
 
