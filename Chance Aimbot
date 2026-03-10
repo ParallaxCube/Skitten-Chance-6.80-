@@ -1,9 +1,4 @@
-local VersNumber = "7.14v"
-print("Hello Skitten3...")
-
-
-
-
+print("Hello Skitten...")
 -- [[ 1. SERVICES ]]
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local  userInputService = game:GetService("UserInputService")
@@ -180,7 +175,7 @@ end
 print ("7.05 chance Aiming")
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-                  Name = "Version ".. VersNumber.."(+)",
+                  Name = "Version 7.04(+)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
@@ -520,7 +515,7 @@ end
 -- main aim loop
 -- main aim loop
 runService.Heartbeat:Connect(function(dt)
-    -- 1. Killer Markers (Stay the same)
+    -- 1. Killer Markers
     markerTimer += dt
     if markerTimer >= 0.1 then
         markerTimer = 0
@@ -542,7 +537,7 @@ runService.Heartbeat:Connect(function(dt)
 
     -- 2. Stabilized Aimbot Logic
     if not chanceActive or not chancePlayerHRP then 
-        predictionMarker.Transparency = 0.5
+        predictionMarker.Transparency = 1 -- Keep hidden if aim assist is totally off
         return 
     end
 
@@ -557,21 +552,24 @@ runService.Heartbeat:Connect(function(dt)
 
         if not targetHRP or (not forceAimActive and elapsed > chanceAimDuration) then
             chanceAiming = false
-            predictionMarker.Transparency = 0.1
+            predictionMarker.Transparency = 1 -- Hide box when we stop aiming
             if chancePlayerHumanoid then chancePlayerHumanoid.AutoRotate = true end
             return
         end
 
         if (targetHRP.Position - chancePlayerHRP.Position).Magnitude < ChanceClosenesstoDisable then
-            predictionMarker.Transparency = 0.6
+            predictionMarker.Transparency = 1 -- Hide box if they get too close (safety measure)
             return 
         end
 
         local predicted = getUnifiedPrediction(targetHRP, TargetMode)
         if predicted then
+            -- Safely move and show the box ONLY if the UI toggle is ON
             if showPredictionBox then
-                predictionMarker.CFrame = CFrame.new(predicted) * (targetHRP.CFrame - targetHRP.Position)
+                predictionMarker.CFrame = CFrame.new(predicted) * targetHRP.CFrame.Rotation
                 predictionMarker.Transparency = 0.5
+            else
+                predictionMarker.Transparency = 1
             end
 
             -- Only disable AutoRotate if we are NOT in a Camera-only mode
@@ -585,6 +583,9 @@ runService.Heartbeat:Connect(function(dt)
             
             ExecuteAim(predicted, dt)
         end
+    else
+        -- Make sure it stays hidden if we are just walking around not aiming
+        predictionMarker.Transparency = 0.5
     end
 end)
 -- the end of main aim loop
