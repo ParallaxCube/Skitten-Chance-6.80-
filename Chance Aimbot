@@ -1,3 +1,4 @@
+print("Hello Skitten...")
 -- [[ 1. SERVICES ]]
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local userInputService = game:GetService("UserInputService")
@@ -48,9 +49,17 @@ local targetLookup = {}
 for _, name in ipairs(chanceAimTargets) do targetLookup[name] = true end
 
 local chanceAimAnimationIds = {  
-    "133491532453922", "133607163653602", "76649505662612", 
-    "86371356500204", "131189930305001", "103601716322988", 
-    "111384272984267", "74687476269316", "111512633767170", "81698196845041"
+
+ "133491532453922", --[[ Chance (M1-M2) ]] "133607163653602", --[[ Chance (M3-M4) ]]
+
+ "76649505662612",  --[[    MLG Chance  ]] "86371356500204",  --[[      Retro     ]]
+
+ "131189930305001", --[[    Nutcracker  ]] "103601716322988", --[[     Outlaw     ]]
+
+ "111384272984267", --[[ Big Game Hunter]] "74687476269316",  --[[     Unknown    ]]
+
+ "111512633767170", --[[     Unknown    ]] "81698196845041",  --[[     Unknown    ]]
+
 }
 
 -- Marker variables
