@@ -1,22 +1,21 @@
-print("Hello Skitten...")
+print("Hello Skitten1...")
 -- [[ 1. SERVICES ]]
 local replicatedStorage = game:GetService("ReplicatedStorage")
-local userInputService = game:GetService("UserInputService")
-local workspaceService = game:GetService("Workspace")
-local lightingService = game:GetService("Lighting")
-local materialService = game:GetService("MaterialService")
-local textChatService = game:GetService("TextChatService")
-local playersService = game:GetService("Players")
-local debrisService = game:GetService("Debris")
-local statsService = game:GetService("Stats")
-local runService = game:GetService("RunService")
-
+local  userInputService = game:GetService("UserInputService")
+local  workspaceService = game:GetService("Workspace")
+local   lightingService = game:GetService("Lighting")
+local   materialService = game:GetService("MaterialService")
+local   textChatService = game:GetService("TextChatService")
+local    playersService = game:GetService("Players")
+local     debrisService = game:GetService("Debris")
+local      statsService = game:GetService("Stats")
+local        runService = game:GetService("RunService")
 -- [[ 2. GLOBAL VARIABLES (Declared BEFORE they are used) ]]
 local chancePlayerHumanoid, chancePlayerHRP = nil, nil
-local chanceAiming = false
-local forceAimActive = false
+local      chanceAiming = false
+local    forceAimActive = false
 local chanceActiveTrack = nil
-local camera = workspaceService.CurrentCamera
+local            camera = workspaceService.CurrentCamera
 
 local extraStuds = 0
 local CustomStudsAddedToPing = 0 
@@ -49,17 +48,11 @@ local targetLookup = {}
 for _, name in ipairs(chanceAimTargets) do targetLookup[name] = true end
 
 local chanceAimAnimationIds = {  
-
  "133491532453922", --[[ Chance (M1-M2) ]] "133607163653602", --[[ Chance (M3-M4) ]]
-
  "76649505662612",  --[[    MLG Chance  ]] "86371356500204",  --[[      Retro     ]]
-
  "131189930305001", --[[    Nutcracker  ]] "103601716322988", --[[     Outlaw     ]]
-
  "111384272984267", --[[ Big Game Hunter]] "74687476269316",  --[[     Unknown    ]]
-
  "111512633767170", --[[     Unknown    ]] "81698196845041",  --[[     Unknown    ]]
-
 }
 
 -- Marker variables
@@ -99,6 +92,7 @@ local function CamMode(targetHRP, hrpPos, predicted, dt)
     camera.CFrame = camera.CFrame:Lerp(camCF, math.min(CAMSmoothing * dt * 60, 1))
 end
 
+
 local function SnapMode(targetHRP, hrpPos, predicted)
     local flatTarget = Vector3.new(predicted.X, hrpPos.Y, predicted.Z)
     chancePlayerHRP.CFrame = CFrame.lookAt(hrpPos, flatTarget)
@@ -115,7 +109,19 @@ local function ASnapMode(targetHRP, hrpPos, predicted)
     chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, math.clamp(HRPSmoothing,0.15,0.45))
 end
 
+local function ACamMode(targetHRP, hrpPos, predicted, dt)
+    if not targetHRP then return end-- Get the current camera position
+    local camPos = camera.CFrame.Position-- Calculate the target's predicted position (to lock the camera onto it)
+    local cameraLookAt = predicted + Vector3.new(0, 2, 0)  -- Adjusting to focus on the target's head-- Calculate the direction to look at the target
+    local direction = (cameraLookAt - camPos).Unit-- Smoothly rotate the camera to aim at the predicted target position
+    local camCF = CFrame.new(camPos, cameraLookAt) * CFrame.Angles(0, math.atan2(-direction.X, -direction.Z), 0)-- Apply the smooth camera rotation (camera position remains fixed relative to the character)
+    camera.CFrame = camera.CFrame:Lerp(camCF, math.min(CAMSmoothing * dt * 60, 1)) -- Keep the player’s humanoid root part rotating towards the predicted target
+    local lookAtAngle = CFrame.new(hrpPos, predicted).LookVector
+    chancePlayerHRP.CFrame = CFrame.new(hrpPos, hrpPos + lookAtAngle)
+end
+
 -- [[ 6. EXECUTION LOGIC ]]
+-- Update ExecuteAim to include ACam
 local function ExecuteAim(predicted, dt)
     if not chancePlayerHRP then return end
     local hrpPos = chancePlayerHRP.Position
@@ -128,6 +134,8 @@ local function ExecuteAim(predicted, dt)
         CamMode(nil, hrpPos, predicted, dt)
     elseif TargetMode == "ASnap" then
         ASnapMode(nil, hrpPos, predicted)
+    elseif TargetMode == "ACam" then
+        ACamMode(nil, hrpPos, predicted, dt)  -- ACam mode logic
     else
         HRPMode(nil, hrpPos, predicted, dt)
     end
@@ -175,7 +183,7 @@ end
 print ("7.05 chance Aiming")
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-                  Name = "Version 7.04(+)",
+                  Name = "Version 7.11(+)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
@@ -305,7 +313,7 @@ local ASnapPredictionSlider = ChanceTab:CreateSlider({
 -- Dropdown for selecting target mode (HRP or Camera)
 local TargetModeDropdown = ChanceTab:CreateDropdown({
    Name = "Target Mode",
-   Options = {"HRP","Cam","Snap","ASnap"},
+   Options = {"HRP","Cam","Snap","ASnap","ACam"},
    CurrentOption = {"Snap"},  -- Default to HRP
    MultipleOptions = false,
    Flag = "TargetModeDropdownFlag",
@@ -490,16 +498,16 @@ local function createKillerMarker(targetHRP, name)
     local marker = Instance.new("BillboardGui")
     marker.Name = name.."Marker"
     marker.Adornee = targetHRP
-    marker.Size = UDim2.new(0,40,0,19)
-    marker.StudsOffset = Vector3.new(0,3.2,0)
+    marker.Size = UDim2.new(0,60,0,24)
+    marker.StudsOffset = Vector3.new(0,6,0)
     marker.AlwaysOnTop = true
 
     local text = Instance.new("TextLabel")
     text.Name = "DistanceText"
     text.Size = UDim2.new(1,0,1,0)
     text.BackgroundTransparency = 1
-    text.TextColor3 = Color3.fromRGB(120, 200, 255)
-    text.TextStrokeTransparency = 0.75
+    text.TextColor3 = Color3.fromRGB(0, 167, 255)
+    text.TextStrokeTransparency = 0.5
     text.Font = Enum.Font.Code --Enum.Font.GothamBold or Enum.Font.RobotoMono
     text.TextScaled = true
     text.Text = "0"
@@ -552,13 +560,13 @@ runService.Heartbeat:Connect(function(dt)
 
         if not targetHRP or (not forceAimActive and elapsed > chanceAimDuration) then
             chanceAiming = false
-            predictionMarker.Transparency = 1
+            predictionMarker.Transparency = 0.1
             if chancePlayerHumanoid then chancePlayerHumanoid.AutoRotate = true end
             return
         end
 
         if (targetHRP.Position - chancePlayerHRP.Position).Magnitude < ChanceClosenesstoDisable then
-            predictionMarker.Transparency = 1
+            predictionMarker.Transparency = 0.6
             return 
         end
 
