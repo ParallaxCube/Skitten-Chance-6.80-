@@ -1,52 +1,86 @@
--- No further work needed on these
-local            replicatedStorage = game:GetService("ReplicatedStorage")
-local             userInputService = game:GetService("UserInputService")
-local             workspaceService = game:GetService("Workspace")
-local              lightingService = game:GetService("Lighting")
-local              materialService = game:GetService("MaterialService")
-local              textChatService = game:GetService("TextChatService")
-local               playersService = game:GetService("Players")
-local                debrisService = game:GetService("Debris")
-local                 statsService = game:GetService("Stats")
-local                   runService = game:GetService("RunService")
-local                 chanceAiming = false
-local                   extraStuds = 0
-local               forceAimActive = false
-local          pingPredictionASnap = 0
---local playersFolder = workspaceService:WaitForChild("Players")
---local killersFolder = playersFolder:WaitForChild("Killers")
-local            chanceActiveTrack = nil
-local                       camera = workspaceService.CurrentCamera
-local          killerMarkerEnabled = false
-local           killerMarkerFolder = workspaceService:FindFirstChild("KillerMarkers") or Instance.new("Folder", workspaceService)
-killerMarkerFolder.Name = "KillerMarkers"
-local        pingpredictionstuds   = 0.10 -- Dev ping touch
-local PingpredictionAddedSeconds   = tonumber(pingpredictionstuds) or 0  -- Convert to number
-local           pingPredictionSnap = 0
-local            pingPredictionHRP = 0
-local            pingPredictionCam = 0
-local          ChanceStudsActive   = 0.7
-local   ChanceClosenesstoDisable   = 0   -- When killer is closer than this in studs aimbot shuts off.
-local    chanceMovementThreshold   = tonumber(ChanceStudsActive) or 0  -- Convert to number  -- When KILLER is slower than this aimbot just chills
-local     CustomStudsAddedToPing   = 0    
-local      chanceLastTriggerTime   = 0 -- last time animation happend
-local       chancePredictionMode   = "Ping Only"
-local          chanceAimDuration   = 1.6  -- how long to aim
-local           chanceAimTargets   = {"Slasher","c00lkidd","JohnDoe", "1x1x1x1","Noli","Sixer","Nosferatu"}
-local             closenessValue   = 6
-local               CAMSmoothing   = 0.7
-local               HRPSmoothing   = 0.7
-local               chanceActive   = false       -- Aimbot on or off
-local                 TargetMode   = "Snap"       -- Default to HRP (HumanoidRootPart)
-local autoPredictionEnabled        = false
+print("Hello vGEM AI")
+-- [[ 1. SERVICES ]]
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local userInputService = game:GetService("UserInputService")
+local workspaceService = game:GetService("Workspace")
+local lightingService = game:GetService("Lighting")
+local materialService = game:GetService("MaterialService")
+local textChatService = game:GetService("TextChatService")
+local playersService = game:GetService("Players")
+local debrisService = game:GetService("Debris")
+local statsService = game:GetService("Stats")
+local runService = game:GetService("RunService")
+
+-- [[ 2. VARIABLES & CONFIG ]]
+local camera = workspaceService.CurrentCamera
+local localPlayer = playersService.LocalPlayer
+local chancePlayerHumanoid, chancePlayerHRP = nil, nil
+local chanceActiveTrack = nil
+local chanceAiming = false
+local forceAimActive = false
+
+-- Aimbot Settings
+local chanceActive = false
+local TargetMode = "Snap"
+local chanceAimDuration = 1.6
+local chanceLastTriggerTime = 0
+local closenessValue = 6
+local ChanceClosenesstoDisable = 6
+local chanceMovementThreshold = 0.7
+local extraStuds = 0
+local CustomStudsAddedToPing = 0
+local autoPredictionEnabled = false
+local chancePredictionMode = "Ping Only"
+
+-- Prediction Settings
+local pingPredictionSnap = 0
+local pingPredictionHRP = 0
+local pingPredictionCam = 0
+local pingPredictionASnap = 0
+local CAMSmoothing = 0.7
+local HRPSmoothing = 0.7
+
+-- Targets
+local chanceAimTargets = {"Slasher","c00lkidd","JohnDoe", "1x1x1x1","Noli","Sixer","Nosferatu"}
+local targetLookup = {}
+for _, name in ipairs(chanceAimTargets) do targetLookup[name] = true end
+
 local chanceAimAnimationIds = {  
- "133491532453922", --[[ Chance (M1-M2) ]] "133607163653602", --[[ Chance (M3-M4) ]]
- "76649505662612",  --[[    MLG Chance  ]] "86371356500204",  --[[      Retro     ]]
- "131189930305001", --[[    Nutcracker  ]] "103601716322988", --[[     Outlaw     ]]
- "111384272984267", --[[ Big Game Hunter]] "74687476269316",  --[[     Unknown    ]]
- "111512633767170", --[[     Unknown    ]] "81698196845041",  --[[     Unknown    ]]
+    "133491532453922", "133607163653602", "76649505662612", "86371356500204",
+    "131189930305001", "103601716322988", "111384272984267", "74687476269316",
+    "111512633767170", "81698196845041",
 }
+
+-- Markers
+local killerMarkerEnabled = false
+local killerMarkerFolder = workspaceService:FindFirstChild("KillerMarkers") or Instance.new("Folder", workspaceService)
+killerMarkerFolder.Name = "KillerMarkers"
 local markerTimer = 0
+
+-- [[ 3. UTILITY FUNCTIONS ]]
+local function syncCharacter(char)
+    if not char then return end
+    chancePlayerHumanoid = char:WaitForChild("Humanoid", 10)
+    chancePlayerHRP = char:WaitForChild("HumanoidRootPart", 10)
+end
+
+if localPlayer.Character then syncCharacter(localPlayer.Character) end
+localPlayer.CharacterAdded:Connect(syncCharacter)
+
+local function chanceFindValidTarget()
+    local pFolder = workspaceService:FindFirstChild("Players")
+    local kFolder = pFolder and pFolder:FindFirstChild("Killers")
+    if not kFolder then return nil end
+    
+    for _, killer in ipairs(kFolder:GetChildren()) do
+        if targetLookup[killer.Name] and killer:FindFirstChild("HumanoidRootPart") then
+            return killer.HumanoidRootPart
+        end
+    end
+    return nil
+end
+
+-- [[ 4. AIM MODES ]]
 local function CamMode(targetHRP, hrpPos, predicted, dt)
     local camPos = camera.CFrame.Position
     local direction = (predicted - camPos).Unit
@@ -54,32 +88,36 @@ local function CamMode(targetHRP, hrpPos, predicted, dt)
     camera.CFrame = camera.CFrame:Lerp(camCF, math.min(CAMSmoothing * dt * 60, 1))
 end
 
-local function SnapMode(targetHRP, hrpPos, predicted)
-    local flatTarget = Vector3.new(predicted.X, hrpPos.Y, predicted.Z)
-    chancePlayerHRP.CFrame = CFrame.lookAt(hrpPos, flatTarget)
-end
-
 local function HRPMode(targetHRP, hrpPos, predicted, dt, customSmooth)
     local smooth = customSmooth or HRPSmoothing
     local targetCF = CFrame.lookAt(hrpPos, predicted)
     chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, math.min(smooth * dt * 60, 1))
 end
+
 local function ASnapMode(targetHRP, hrpPos, predicted)
     local targetCF = CFrame.lookAt(hrpPos, predicted)
-    chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, math.clamp(HRPSmoothing,0.15,0.45))
+    chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, math.clamp(HRPSmoothing, 0.15, 0.45))
 end
 
--- beta2
+local function ExecuteAim(predicted, dt)
+    if not chancePlayerHRP then return end
+    local hrpPos = chancePlayerHRP.Position
+    
+    if TargetMode == "Snap" then
+        local dir = (predicted - hrpPos).Unit
+        local yaw = math.atan2(-dir.X, -dir.Z)
+        chancePlayerHRP.CFrame = CFrame.new(hrpPos) * CFrame.Angles(0, yaw, 0)
+    elseif TargetMode == "Cam" then
+        CamMode(nil, hrpPos, predicted, dt)
+    elseif TargetMode == "ASnap" then
+        ASnapMode(nil, hrpPos, predicted)
+    else
+        HRPMode(nil, hrpPos, predicted, dt)
+    end
+end
 
-
-
-
-
--- beta2
--- PUT THIS after your variables
 local function getUnifiedPrediction(targetHRP, mode)
     if not targetHRP then return nil end
-    
     local ping = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
     local modeOffset = (mode == "Snap" and pingPredictionSnap) 
                     or (mode == "HRP" and pingPredictionHRP) 
@@ -89,13 +127,10 @@ local function getUnifiedPrediction(targetHRP, mode)
     
     local latency = ping + modeOffset
     local velocity = targetHRP.AssemblyLinearVelocity
-    
-    -- Movement threshold check
     if velocity.Magnitude < chanceMovementThreshold then return targetHRP.Position end
 
     local predicted = targetHRP.Position + (velocity * latency)
 
-    -- Advanced ASnap Logic (Acceleration)
     if mode == "ASnap" then
         local lastVel = targetHRP:GetAttribute("LastVelocity") or velocity
         local accel = velocity - lastVel
@@ -108,410 +143,77 @@ local function getUnifiedPrediction(targetHRP, mode)
         end
     end
 
-    -- Global extra studs (Custom + Ping)
-    if extraStuds > 0 then
-        predicted += velocity.Unit * extraStuds
-    end
-
+    if extraStuds > 0 then predicted += velocity.Unit * extraStuds end
     return predicted
 end
--- libary ray
-print ("7.05 chance Aiming")
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({
-                  Name = "Version 7.04(+)",
-                  Icon = "cat"          ,
-          LoadingTitle = "Place_Holder" ,
-       LoadingSubtitle = "Place_Holder" ,
-              ShowText = "Place_Holder" ,
-                 Theme = "Default"      ,
-       ToggleUIKeybind = "K"            ,
-DisableRayfieldPrompts = true           ,
-  DisableBuildWarnings = false          ,
-   ConfigurationSaving = {
-               Enabled = true           ,
-            FolderName = "cAIM___7.04v" ,
-              FileName = "cAIM__7.04v" },
-               Discord = {
-               Enabled = false          ,
-                Invite = ""             ,
-         RememberJoins = true          },
-             KeySystem = false          ,
-           KeySettings = {
-                 Title = "Place_Holder" ,
-              Subtitle = "Place_Holder" ,
-                  Note = "Place_Holder" ,
-              FileName = "cAIM_7.04v" ,
-               SaveKey = false          ,
-       GrabKeyFromSite = false          ,
-                   Key = {"1"}
-}
-})
 
-------- Script below.
-
-----------------------------------------------------------------
--- Sentinel ChanceTab
-local ChanceTab = Window:CreateTab("Chance", "cat") -- Title, Image
-----------------------------------------------------------------
--- Chance Section
-local ChanceSection = ChanceTab:CreateSection("Chance Settings")
-----------------------------------------------------------------
-
--- Aimbot Shoot Toggle (Done)
-local AimToggle = ChanceTab:CreateToggle({
-  Name = "Aim assist?",
-  CurrentValue = false,
-  Flag = "Aimbot_One_Shot",
-  Callback = function(AimAssistToggled) 
-  chanceActive = AimAssistToggled 
-  end,})
-  
-  local ForcedAimBotToggle = ChanceTab:CreateToggle({
-   Name = "Force Aim",
-   CurrentValue = false,
-   Flag = "ForcedAimBot", -- A flag is the identifier for the configuration file; make sure every element has a different flag if you're using configuration saving to ensure no overlaps
-     Callback = function(ForceCmd)
-    forceAimActive = ForceCmd
-end,})
-
-ChanceTab:CreateToggle({
-   Name = "Killer Range Marker",
-   CurrentValue = false,
-   Flag = "KillerMarkerToggle",
-   Callback = function(state)
-        killerMarkerEnabled = state
-   end,
-})
-
-
-local AutoPredictionToggle = ChanceTab:CreateToggle({
-    Name = "Auto Prediction",
-    CurrentValue = false,
-    Flag = "AutoPredictionToggle",
-    Callback = function(state)
-        autoPredictionEnabled = state
-    end,
-})
-
-  -- Ping Prediction Slider for Snap Mode
-local SnapPredictionSlider = ChanceTab:CreateSlider({
-   Name = "Snap Mode Ping Prediction",
-   Range = {0, 1},
-   Increment = 0.01,
-   Suffix = " sec",
-   CurrentValue = 0.00,  
-   
-   Flag = "SnapPingPredictionFlag",  -- Separate flag for Snap
-   Callback = function(value112)
-       pingPredictionSnap = value112
-   end,
-})
-
--- Ping Prediction Slider for HRP Mode
-local HRPPredictionSlider = ChanceTab:CreateSlider({
-   Name = "HRP Mode Ping Prediction",
-   Range = {0, 1},
-   Increment = 0.01,
-   Suffix = " sec",
-   CurrentValue = 0.00,  
-   Flag = "HRPPingPredictionFlag",  -- Separate flag for HRP
-   Callback = function(value212)
-       pingPredictionHRP = value212
-   end,
-})
-
--- Ping Prediction Slider for Cam Mode
-local CamPredictionSlider = ChanceTab:CreateSlider({
-   Name = "Cam Mode Ping Prediction",
-   Range = {0, 1},
-   Increment = 0.01,
-   Suffix = " sec",
-   CurrentValue = 0.00,  
-   Flag = "CamPingPredictionFlag",  -- Separate flag for Cam
-   Callback = function(value221)
-       pingPredictionCam = value221
-   end,
-})
-
-local ASnapPredictionSlider = ChanceTab:CreateSlider({
-   Name = "ASnap Mode Prediction",
-   Range = {0, 1},
-   Increment = 0.01,
-   Suffix = " sec",
-   CurrentValue = 0.00,
-   Flag = "ASnapPingPredictionFlag",
-   Callback = function(value)
-       pingPredictionASnap = value
-   end,
-})
-
--- Dropdown for selecting target mode (HRP or Camera)
-local TargetModeDropdown = ChanceTab:CreateDropdown({
-   Name = "Target Mode",
-   Options = {"HRP","Cam","Snap","ASnap"},
-   CurrentOption = {"Snap"},  -- Default to HRP
-   MultipleOptions = false,
-   Flag = "TargetModeDropdownFlag",
-   Callback = function(mode)
-    TargetMode = mode[1]
-end,
-})
-
--- Custom Studs for HRP Aimbot
-local LabelForRef = ChanceTab:CreateLabel(
-  "Must have 'Custom + ping' Chosen in Dropdown!",
-  "triangle-alert",Color3.fromRGB(122, 9, 25), true) -- Title, Icon, Color, IgnoreTheme
-
-local InputforAddedStuds = ChanceTab:CreateInput({
-   Name = "Custom Studs",
-   CurrentValue = "0.00",
-   PlaceholderText = "0.00",
-   RemoveTextAfterFocusLost = false,
-   Flag = "CustomStudsTEXTbox",
-   Callback = function(val)
-      CustomStudsAddedToPing = tonumber(val) or 0
-      -- This line makes it work instantly if the mode is already selected
-      if chancePredictionMode == "Custom + Ping" then
-          extraStuds = CustomStudsAddedToPing
-      end
-   end,
-})
- 
-local chancePredictionModes = {
- 
-             ["Ping Only"] = 0.00  ,
-            ["Dev Choice"] = 0.00  ,
-     ["Ping + 0.12 Studs"] = 0.12  ,
-     ["Ping + 0.57 Studs"] = 0.57  
-}
-local Dropdown = ChanceTab:CreateDropdown({
-    Name = "Prediction Mode",
-    Options = {
-        "Ping Only",
-        "Custom + Ping",
-        "Dev Choice",
-        "Ping + 0.12 Studs",
-        "Ping + 0.57 Studs"
-    },
-    CurrentOption = {"Ping Only"},
-    MultipleOptions = false,
-    Flag = "Dropdown1ForAddedStudsDropdown",
-    Callback = function(Option)
-        chancePredictionMode = Option[1]
-        
-        -- Immediate Update Logic
-        if chancePredictionMode == "Custom + Ping" then
-            extraStuds = CustomStudsAddedToPing
-        elseif chancePredictionMode == "Ping + 0.12 Studs" then
-            extraStuds = 0.12
-        elseif chancePredictionMode == "Ping + 0.57 Studs" then
-            extraStuds = 0.57
-        elseif chancePredictionMode == "Dev Choice" then
-            extraStuds = 0.10 -- Your pingpredictionstuds value
-        else
-            extraStuds = 0 -- Ping Only
-        end
-    end,
-})
-
-
-
-
-local AdvancedSystemInputs1 = ChanceTab:CreateInput({
-   Name = "Closeness (Safety Messure)",
-   CurrentValue    = "6",
-   PlaceholderText = "6 Studs",
-   RemoveTextAfterFocusLost = false,
-   Flag = "ClosenessInput", -- Updated Flag
-   
-   Callback = function(Closeness)
-    closenessValue = tonumber(Closeness) or 6
-    ChanceClosenesstoDisable = closenessValue
-end,
-})
-
--- Prediction Box Setup
-local predictionMarker = Instance.new("Part")
-predictionMarker.Name = "AimPredictionBox"
-predictionMarker.Size = Vector3.new(2, 4, 1.5) -- Character-sized Rectangle
-predictionMarker.Transparency = 1 -- Start hidden
-predictionMarker.Color = Color3.fromRGB(255, 0, 0)
-predictionMarker.CanCollide = false
-predictionMarker.Anchored = true
-predictionMarker.Material = Enum.Material.Neon
-predictionMarker.Parent = workspace -- Moved to workspace to ensure it renders correctly
-
-local showPredictionBox = false
-
--- Add this to your ChanceTab UI
-ChanceTab:CreateToggle({
-   Name = "Show Prediction Box",
-   CurrentValue = false,
-   Flag = "PredictionBoxToggle",
-   Callback = function(state)
-        showPredictionBox = state
-        predictionMarker.Transparency = state and 0.5 or 1
-   end,
-})
-
-local SafetyMessure_for_aiming = ChanceTab:CreateToggle({
-   Name = "SafetyMessure shutoff",
-   CurrentValue = false,
-   Flag = "SafetyMessuresforaimingtoggle", -- A flag is the identifier for the configuration file; make sure every element has a different flag if you're using configuration saving to ensure no overlaps
-   Callback = function(Safety_Messure_Toggle)
-   if Safety_Messure_Toggle then
-      ChanceClosenesstoDisable = 0
-   else
-      ChanceClosenesstoDisable = closenessValue
-   end
-end,
-})
-
-local AdvancedSystemInputs2 = ChanceTab:CreateInput({
-   Name = "chanceAimDuration",
-   CurrentValue    = "1.6",
-   PlaceholderText = "1.6",
-   RemoveTextAfterFocusLost = false,
-   Flag = "ChanceAimDurationInput", -- Updated Flag
-   Callback = function(Duration2Shoot)
-chanceAimDuration = tonumber(Duration2Shoot) or 1.6
-end 
-})
-
-local AdvancedSystemInputs3 = ChanceTab:CreateInput({
-   Name = "LastTriggerTime (Advanced)", 
-   CurrentValue    = "0",
-   PlaceholderText = "0",
-   RemoveTextAfterFocusLost = false,
-   Flag = "LastTriggerTimeInput", -- Updated Flag
-   Callback = function(chanceLastTriggerInput)
-      chanceLastTriggerTime = tonumber(chanceLastTriggerInput)
-   end,
-})
-
-local AdvancedSystemInputs4 = ChanceTab:CreateInput({
-   Name = "KillerMovementDetection (Advanced)", 
-   CurrentValue    = "0.7",
-   PlaceholderText = "0.7",
-   RemoveTextAfterFocusLost = false,
-   Flag = "KillerMovementDetectionInput", -- Updated Flag
-   Callback = function(ChanceStudsActive)
-      chanceMovementThreshold = tonumber(ChanceStudsActive) or 0.7
-   end,
-})
-
-
--- Setup character references
-local function chanceConfigureCharacter(char)
-    chancePlayerHumanoid = char:FindFirstChild("Humanoid")
-    chancePlayerHRP = char:FindFirstChild("HumanoidRootPart")
-end
-if playersService.LocalPlayer.Character then chanceConfigureCharacter(playersService.LocalPlayer.Character) 
-  end
-playersService.LocalPlayer.CharacterAdded:Connect(chanceConfigureCharacter)
-
--- Find valid killer target
-local targetLookup = {}
-for _, name in ipairs(chanceAimTargets) do targetLookup[name] = true end
-
-local function chanceFindValidTarget()
-    local killers = killersFolder:GetChildren()
-    for _, killer in ipairs(killers) do
-        if targetLookup[killer.Name] then
-            local hrp = killer:FindFirstChild("HumanoidRootPart")
-            if hrp then return hrp end
-        end
-    end
-    return nil
-end
-
-
-
-
-
--- Detect aim animation start
 local function chanceCheckAimAnimation()
-    if not chancePlayerHumanoid or chanceActiveTrack then
-        return false
-    end
-
+    if not chancePlayerHumanoid or chanceActiveTrack then return false end
     for _, track in ipairs(chancePlayerHumanoid:GetPlayingAnimationTracks()) do
         local id = track.Animation.AnimationId:match("%d+")
         if id and table.find(chanceAimAnimationIds, id) then
             chanceActiveTrack = track
-
-            local connection
-            connection = track.Stopped:Connect(function()
-                chanceActiveTrack = nil
-                if connection then
-                    connection:Disconnect()
-                    connection = nil
-                end
-            end)
-
+            track.Stopped:Once(function() chanceActiveTrack = nil end)
             return true
         end
     end
     return false
 end
 
-
-
-
-
-
-
-
-
-
-
---beta7
 local function createKillerMarker(targetHRP, name)
-    if not targetHRP then return end
-
-    local marker = Instance.new("BillboardGui")
-    marker.Name = name.."Marker"
-    marker.Adornee = targetHRP
-    marker.Size = UDim2.new(0,40,0,19)
-    marker.StudsOffset = Vector3.new(0,3.2,0)
-    marker.AlwaysOnTop = true
-
-    local text = Instance.new("TextLabel")
-    text.Name = "DistanceText"
-    text.Size = UDim2.new(1,0,1,0)
-    text.BackgroundTransparency = 1
-    text.TextColor3 = Color3.fromRGB(120, 200, 255)
-    text.TextStrokeTransparency = 0.75
-    text.Font = Enum.Font.Code --Enum.Font.GothamBold or Enum.Font.RobotoMono
-    text.TextScaled = true
-    text.Text = "0"
-    text.Parent = marker
-
-    marker.Parent = killerMarkerFolder
-
+    local marker = Instance.new("BillboardGui", killerMarkerFolder)
+    marker.Name = name.."Marker"; marker.Adornee = targetHRP
+    marker.Size = UDim2.new(0,40,0,19); marker.StudsOffset = Vector3.new(0,3.2,0); marker.AlwaysOnTop = true
+    local text = Instance.new("TextLabel", marker)
+    text.Name = "DistanceText"; text.Size = UDim2.new(1,0,1,0); text.BackgroundTransparency = 1
+    text.TextColor3 = Color3.fromRGB(120, 200, 255); text.Font = Enum.Font.Code; text.TextScaled = true
     return marker
 end
---beta7
 
+-- [[ 5. UI INITIALIZATION (Rayfield) ]]
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+    Name = "Version 7.05 (+)",
+    ConfigurationSaving = {Enabled = true, FolderName = "cAIM___7.04v", FileName = "cAIM__7.04v"}
+})
 
--- main aim loop
--- main aim loop
--- main aim loop
+local ChanceTab = Window:CreateTab("Chance", "cat")
+ChanceTab:CreateSection("Chance Settings")
+
+ChanceTab:CreateToggle({Name = "Aim assist?", CurrentValue = false, Callback = function(v) chanceActive = v end})
+ChanceTab:CreateToggle({Name = "Force Aim", CurrentValue = false, Callback = function(v) forceAimActive = v end})
+ChanceTab:CreateToggle({Name = "Killer Range Marker", CurrentValue = false, Callback = function(v) killerMarkerEnabled = v end})
+ChanceTab:CreateToggle({Name = "Auto Prediction", CurrentValue = false, Callback = function(v) autoPredictionEnabled = v end})
+
+ChanceTab:CreateSlider({Name = "Snap Prediction", Range = {0, 1}, Increment = 0.01, Callback = function(v) pingPredictionSnap = v end})
+ChanceTab:CreateDropdown({Name = "Target Mode", Options = {"HRP","Cam","Snap","ASnap"}, CurrentOption = {"Snap"}, Callback = function(v) TargetMode = v[1] end})
+
+-- Prediction Box Setup
+local predictionMarker = Instance.new("Part", workspace)
+predictionMarker.Name = "AimPredictionBox"; predictionMarker.Size = Vector3.new(2, 4, 1.5)
+predictionMarker.Transparency = 1; predictionMarker.CanCollide = false; predictionMarker.Anchored = true
+predictionMarker.Material = Enum.Material.Neon; predictionMarker.Color = Color3.fromRGB(255, 0, 0)
+
+local showPredictionBox = false
+ChanceTab:CreateToggle({Name = "Show Prediction Box", CurrentValue = false, Callback = function(v) 
+    showPredictionBox = v 
+    predictionMarker.Transparency = v and 0.5 or 1 
+end})
+
+-- [[ 6. MAIN LOOP ]]
 runService.Heartbeat:Connect(function(dt)
-    -- 1. Marker/Visual Logic (Distance Labels)
+    -- Killer Markers
     markerTimer += dt
     if markerTimer >= 0.1 then
         markerTimer = 0
-        if killerMarkerEnabled and chancePlayerHRP then
-            for _, killer in ipairs(killersFolder:GetChildren()) do
+        local kFolder = workspaceService:FindFirstChild("Players") and workspaceService.Players:FindFirstChild("Killers")
+        if killerMarkerEnabled and chancePlayerHRP and kFolder then
+            for _, killer in ipairs(kFolder:GetChildren()) do
                 local hrp = killer:FindFirstChild("HumanoidRootPart")
                 if hrp then
                     local marker = killerMarkerFolder:FindFirstChild(killer.Name.."Marker") or createKillerMarker(hrp, killer.Name)
                     local dist = (hrp.Position - chancePlayerHRP.Position).Magnitude
-                    if marker:FindFirstChild("DistanceText") then
-                        marker.DistanceText.Text = math.floor(dist)
-                    end
+                    if marker:FindFirstChild("DistanceText") then marker.DistanceText.Text = math.floor(dist) end
                     marker.Enabled = (dist > 1 and dist < 100)
                 end
             end
@@ -520,124 +222,43 @@ runService.Heartbeat:Connect(function(dt)
         end
     end
 
-    -- 2. Aimbot Logic & Prediction Box
+    -- Aimbot Logic
     if not chanceActive or not chancePlayerHRP then 
         predictionMarker.Transparency = 1
         return 
     end
 
-    -- Check if we should start aiming
     if not chanceAiming and (chanceCheckAimAnimation() or forceAimActive) then
         chanceLastTriggerTime = tick()
         chanceAiming = true
     end
 
     if chanceAiming then
-        local elapsed = tick() - chanceLastTriggerTime
         local targetHRP = chanceFindValidTarget()
+        local elapsed = tick() - chanceLastTriggerTime
 
-        -- Check if we should stop aiming
-        if not targetHRP or (elapsed > chanceAimDuration and not forceAimActive) then
+        if not targetHRP or (not forceAimActive and elapsed > chanceAimDuration) then
             chanceAiming = false
             predictionMarker.Transparency = 1
             if chancePlayerHumanoid then chancePlayerHumanoid.AutoRotate = true end
             return
         end
 
-        -- Safety Closeness Check
         if (targetHRP.Position - chancePlayerHRP.Position).Magnitude < ChanceClosenesstoDisable then
             predictionMarker.Transparency = 1
             return 
         end
 
-        -- Calculate Prediction
         local predicted = getUnifiedPrediction(targetHRP, TargetMode)
-        
         if predicted then
-            -- Update Visual Box (MIRROR ROTATION LOGIC)
             if showPredictionBox then
-                -- This aligns the box to the predicted position AND the killer's actual rotation
-                -- Formula: Position the CFrame at 'predicted', then apply target's rotation offset
                 predictionMarker.CFrame = CFrame.new(predicted) * (targetHRP.CFrame - targetHRP.Position)
                 predictionMarker.Transparency = 0.5
-            else
-                predictionMarker.Transparency = 1
             end
-
-            -- Execute Aim
             if chancePlayerHumanoid then chancePlayerHumanoid.AutoRotate = false end
-            local hrpPos = chancePlayerHRP.Position
-            
-            if TargetMode == "Snap" then 
-                SnapMode(targetHRP, hrpPos, predicted)
-            elseif TargetMode == "ASnap" then 
-                -- Using your ASnap clamp logic within HRPMode for consistent smoothing
-                HRPMode(targetHRP, hrpPos, predicted, dt, math.clamp(HRPSmoothing, 0.15, 0.45))
-            elseif TargetMode == "HRP" then 
-                HRPMode(targetHRP, hrpPos, predicted, dt)
-            elseif TargetMode == "Cam" then 
-                CamMode(targetHRP, hrpPos, predicted, dt)
-            end
-        else
-            predictionMarker.Transparency = 1
+            ExecuteAim(predicted, dt)
         end
-    else
-        -- Hide box if not aiming
-        predictionMarker.Transparency = 1
     end
 end)
--- the end of main aim loop
 
-
-
-
-
-
-
-
-
-
-
-
-----------------------------------------------------------------
--- Interface ChanceTab
-----------------------------------------------------------------
-local InterfaceTab = Window:CreateTab("Interface", "scan")
-----------------------------------------------------------------
--- UI Functions Section
-----------------------------------------------------------------
-InterfaceTab:CreateSection("UI Functions")
-
-InterfaceTab:CreateButton({
-    Name = "kick",
-    Callback = function()
-print([[
-Lower value = smoother
-Higher value = snappier
-]])
-
-game.Players.LocalPlayer:Kick("GOT YA!")
-end})
-
-InterfaceTab:CreateButton({
-    Name = "⚠ Print Locals ⚠",  -- Button name
-    Callback = function()
-        print("⚠=== Local Variables ===⚠")
-        print("chanceActive             = " .. tostring(chanceActive))
-        print("chancePredictionMode     = " .. tostring(chancePredictionMode))
-        print("chanceAimDuration        = " .. tostring(chanceAimDuration))
-        print("chanceMovementThreshold  = " .. tostring(chanceMovementThreshold))
-        print("ChanceClosenesstoDisable = " .. tostring(ChanceClosenesstoDisable))
-        print("CAMSmoothing             = " .. tostring(CAMSmoothing))
-        print("HRPSmoothing             = " .. tostring(HRPSmoothing))
-        print("TargetMode               = " .. tostring(TargetMode))
-        print("CustomStudsAddedToPing   = " .. tostring(CustomStudsAddedToPing))
-        print("PingpredictionAddedSeconds " .. tostring(PingpredictionAddedSeconds))
-        print("chanceLastTriggerTime    = " .. tostring(chanceLastTriggerTime))
-        print("pingPredictionSnap       = " .. tostring(pingPredictionSnap))
-        print("pingPredictionHRP        = " .. tostring(pingPredictionHRP))
-        print("pingPredictionCam        = " .. tostring(pingPredictionCam))
-        print("⚠========================⚠")
-    end
-})
 Rayfield:LoadConfiguration()
