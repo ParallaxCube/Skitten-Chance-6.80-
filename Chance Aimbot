@@ -1,4 +1,4 @@
-print("Hello Skitten1...")
+print("Hello Skitten2...")
 -- [[ 1. SERVICES ]]
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local  userInputService = game:GetService("UserInputService")
@@ -88,8 +88,14 @@ end
 local function CamMode(targetHRP, hrpPos, predicted, dt)
     local camPos = camera.CFrame.Position
     local direction = (predicted - camPos).Unit
+    
+    -- Smoothly rotate the camera to aim at the predicted target position
     local camCF = CFrame.new(camPos, camPos + direction)
     camera.CFrame = camera.CFrame:Lerp(camCF, math.min(CAMSmoothing * dt * 60, 1))
+    
+    -- Ensure the HRP only rotates horizontally (no vertical freeze)
+    local lookAtAngle = CFrame.new(hrpPos, predicted).LookVector
+    chancePlayerHRP.CFrame = CFrame.new(hrpPos, hrpPos + Vector3.new(lookAtAngle.X, hrpPos.Y, lookAtAngle.Z))
 end
 
 
@@ -105,19 +111,32 @@ local function HRPMode(targetHRP, hrpPos, predicted, dt, customSmooth)
 end
 
 local function ASnapMode(targetHRP, hrpPos, predicted)
+    -- Make sure we only modify the yaw (Y-axis) rotation
     local targetCF = CFrame.lookAt(hrpPos, predicted)
-    chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, math.clamp(HRPSmoothing,0.15,0.45))
+    local lookAtAngle = CFrame.new(hrpPos, predicted).LookVector
+    chancePlayerHRP.CFrame = CFrame.new(hrpPos, hrpPos + Vector3.new(lookAtAngle.X, 0, lookAtAngle.Z)) -- Zero out Y-axis for no vertical rotation
 end
 
 local function ACamMode(targetHRP, hrpPos, predicted, dt)
-    if not targetHRP then return end-- Get the current camera position
-    local camPos = camera.CFrame.Position-- Calculate the target's predicted position (to lock the camera onto it)
-    local cameraLookAt = predicted + Vector3.new(0, 2, 0)  -- Adjusting to focus on the target's head-- Calculate the direction to look at the target
-    local direction = (cameraLookAt - camPos).Unit-- Smoothly rotate the camera to aim at the predicted target position
-    local camCF = CFrame.new(camPos, cameraLookAt) * CFrame.Angles(0, math.atan2(-direction.X, -direction.Z), 0)-- Apply the smooth camera rotation (camera position remains fixed relative to the character)
-    camera.CFrame = camera.CFrame:Lerp(camCF, math.min(CAMSmoothing * dt * 60, 1)) -- Keep the player’s humanoid root part rotating towards the predicted target
+    if not targetHRP then return end
+    
+    -- Get the current camera position
+    local camPos = camera.CFrame.Position
+    
+    -- Calculate the target's predicted position (to lock the camera onto it)
+    local cameraLookAt = predicted + Vector3.new(0, 2, 0)  -- Adjust to focus on the target's head
+    
+    -- Calculate the direction to look at the target
+    local direction = (cameraLookAt - camPos).Unit
+    
+    -- Smoothly rotate the camera to aim at the predicted target position
+    local camCF = CFrame.new(camPos, cameraLookAt) * CFrame.Angles(0, math.atan2(-direction.X, -direction.Z), 0)
+    camera.CFrame = camera.CFrame:Lerp(camCF, math.min(CAMSmoothing * dt * 60, 1))
+    
+    -- Smoothly rotate the HRP to align with the predicted target position (on the ground plane)
     local lookAtAngle = CFrame.new(hrpPos, predicted).LookVector
-    chancePlayerHRP.CFrame = CFrame.new(hrpPos, hrpPos + lookAtAngle)
+    -- Only apply horizontal (Y-axis) rotation to HRP to prevent freezing
+    chancePlayerHRP.CFrame = CFrame.new(hrpPos, hrpPos + Vector3.new(lookAtAngle.X, hrpPos.Y, lookAtAngle.Z)) 
 end
 
 -- [[ 6. EXECUTION LOGIC ]]
@@ -183,7 +202,7 @@ end
 print ("7.05 chance Aiming")
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-                  Name = "Version 7.11(+)",
+                  Name = "Version 7.04(+)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
@@ -399,11 +418,11 @@ end,
 local predictionMarker = Instance.new("Part")
 predictionMarker.Name = "AimPredictionBox"
 predictionMarker.Size = Vector3.new(2, 4, 1.5) -- Character-sized Rectangle
-predictionMarker.Transparency = 1 -- Start hidden
+predictionMarker.Transparency = 0.6 -- Start unhidden
 predictionMarker.Color = Color3.fromRGB(255, 0, 0)
 predictionMarker.CanCollide = false
 predictionMarker.Anchored = true
-predictionMarker.Material = Enum.Material.Neon
+predictionMarker.Material = Enum.Material.Glass--Enum.Material.Neon
 predictionMarker.Parent = workspace -- Moved to workspace to ensure it renders correctly
 
 local showPredictionBox = false
@@ -506,8 +525,8 @@ local function createKillerMarker(targetHRP, name)
     text.Name = "DistanceText"
     text.Size = UDim2.new(1,0,1,0)
     text.BackgroundTransparency = 1
-    text.TextColor3 = Color3.fromRGB(0, 167, 255)
-    text.TextStrokeTransparency = 0.5
+    text.TextColor3 = Color3.fromRGB(100, 167, 255)
+    text.TextStrokeTransparency = 0.2
     text.Font = Enum.Font.Code --Enum.Font.GothamBold or Enum.Font.RobotoMono
     text.TextScaled = true
     text.Text = "0"
@@ -545,7 +564,7 @@ runService.Heartbeat:Connect(function(dt)
 
     -- 2. Stabilized Aimbot Logic
     if not chanceActive or not chancePlayerHRP then 
-        predictionMarker.Transparency = 1
+        predictionMarker.Transparency = 0.5
         return 
     end
 
