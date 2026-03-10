@@ -1,4 +1,9 @@
-print("Hello Skitten2...")
+local VersNumber = "7.14v"
+print("Hello Skitten3...")
+
+
+
+
 -- [[ 1. SERVICES ]]
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local  userInputService = game:GetService("UserInputService")
@@ -93,51 +98,24 @@ local function CamMode(targetHRP, hrpPos, predicted, dt)
     local camCF = CFrame.new(camPos, camPos + direction)
     camera.CFrame = camera.CFrame:Lerp(camCF, math.min(CAMSmoothing * dt * 60, 1))
     
-    -- Ensure the HRP only rotates horizontally (no vertical freeze)
-    local lookAtAngle = CFrame.new(hrpPos, predicted).LookVector
-    chancePlayerHRP.CFrame = CFrame.new(hrpPos, hrpPos + Vector3.new(lookAtAngle.X, hrpPos.Y, lookAtAngle.Z))
-end
-
-
-local function SnapMode(targetHRP, hrpPos, predicted)
-    local flatTarget = Vector3.new(predicted.X, hrpPos.Y, predicted.Z)
-    chancePlayerHRP.CFrame = CFrame.lookAt(hrpPos, flatTarget)
-end
-
-local function HRPMode(targetHRP, hrpPos, predicted, dt, customSmooth)
-    local smooth = customSmooth or HRPSmoothing
-    local targetCF = CFrame.lookAt(hrpPos, predicted)
-    chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, math.min(smooth * dt * 60, 1))
-end
-
-local function ASnapMode(targetHRP, hrpPos, predicted)
-    -- Make sure we only modify the yaw (Y-axis) rotation
-    local targetCF = CFrame.lookAt(hrpPos, predicted)
-    local lookAtAngle = CFrame.new(hrpPos, predicted).LookVector
-    chancePlayerHRP.CFrame = CFrame.new(hrpPos, hrpPos + Vector3.new(lookAtAngle.X, 0, lookAtAngle.Z)) -- Zero out Y-axis for no vertical rotation
+    -- NO HRP MANIPULATION HERE: Your character is free to move!
 end
 
 local function ACamMode(targetHRP, hrpPos, predicted, dt)
-    if not targetHRP then return end
-    
     -- Get the current camera position
     local camPos = camera.CFrame.Position
     
     -- Calculate the target's predicted position (to lock the camera onto it)
-    local cameraLookAt = predicted + Vector3.new(0, 2, 0)  -- Adjust to focus on the target's head
-    
-    -- Calculate the direction to look at the target
+    local cameraLookAt = predicted + Vector3.new(0, 2, 0)  -- Adjust to focus on the head
     local direction = (cameraLookAt - camPos).Unit
     
     -- Smoothly rotate the camera to aim at the predicted target position
     local camCF = CFrame.new(camPos, cameraLookAt) * CFrame.Angles(0, math.atan2(-direction.X, -direction.Z), 0)
     camera.CFrame = camera.CFrame:Lerp(camCF, math.min(CAMSmoothing * dt * 60, 1))
     
-    -- Smoothly rotate the HRP to align with the predicted target position (on the ground plane)
-    local lookAtAngle = CFrame.new(hrpPos, predicted).LookVector
-    -- Only apply horizontal (Y-axis) rotation to HRP to prevent freezing
-    chancePlayerHRP.CFrame = CFrame.new(hrpPos, hrpPos + Vector3.new(lookAtAngle.X, hrpPos.Y, lookAtAngle.Z)) 
+    -- NO HRP MANIPULATION HERE: Your character is free to move!
 end
+
 
 -- [[ 6. EXECUTION LOGIC ]]
 -- Update ExecuteAim to include ACam
@@ -202,7 +180,7 @@ end
 print ("7.05 chance Aiming")
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-                  Name = "Version 7.04(+)",
+                  Name = "Version ".. VersNumber.."(+)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
@@ -417,12 +395,12 @@ end,
 -- Prediction Box Setup
 local predictionMarker = Instance.new("Part")
 predictionMarker.Name = "AimPredictionBox"
-predictionMarker.Size = Vector3.new(2, 4, 1.5) -- Character-sized Rectangle
+predictionMarker.Size = Vector3.new(1.5, 8, 1.5) -- Character-sized Rectangle
 predictionMarker.Transparency = 0.6 -- Start unhidden
-predictionMarker.Color = Color3.fromRGB(255, 0, 0)
+predictionMarker.Color = Color3.fromRGB(25, 167, 255)
 predictionMarker.CanCollide = false
 predictionMarker.Anchored = true
-predictionMarker.Material = Enum.Material.Glass--Enum.Material.Neon
+predictionMarker.Material = Enum.Material.Neon--Enum.Material.Neon
 predictionMarker.Parent = workspace -- Moved to workspace to ensure it renders correctly
 
 local showPredictionBox = false
@@ -596,7 +574,15 @@ runService.Heartbeat:Connect(function(dt)
                 predictionMarker.Transparency = 0.5
             end
 
-            if chancePlayerHumanoid then chancePlayerHumanoid.AutoRotate = false end
+            -- Only disable AutoRotate if we are NOT in a Camera-only mode
+            if chancePlayerHumanoid then 
+                if TargetMode == "Cam" or TargetMode == "ACam" then
+                    chancePlayerHumanoid.AutoRotate = true
+                else
+                    chancePlayerHumanoid.AutoRotate = false 
+                end
+            end
+            
             ExecuteAim(predicted, dt)
         end
     end
