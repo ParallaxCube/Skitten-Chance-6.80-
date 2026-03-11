@@ -1,5 +1,5 @@
 
---[[ MY WEBHOOK https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd]]
+local helloworlde = "MY WEBHOOK https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd"
 --// Services
 local replicatedStorage   = game:GetService("ReplicatedStorage")
 local userInputService    = game:GetService("UserInputService")
