@@ -1,19 +1,5 @@
-print("8.0v (ish)")
--- MY WEBHOOK https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd
-local chanceAimTargets = {"Slasher","c00lkidd","JohnDoe", "1x1x1x1","Noli","Sixer","Nosferatu"}
-local chanceAimAnimationIds = {  
- "111384272984267", --[[ Big Game Hunter]] 
- "133491532453922", --[[ Chance (M1-M2) ]] 
- "133607163653602", --[[ Chance (M3-M4) ]]
- "131189930305001", --[[    Nutcracker  ]] 
- "76649505662612",  --[[    MLG Chance  ]] 
- "103601716322988", --[[     Outlaw     ]]
- "86371356500204",  --[[      Retro     ]]
- "74687476269316",  --[[     Unknown    ]]
- "111512633767170", --[[     Unknown    ]] 
- "81698196845041",  --[[     Unknown    ]]
-}
 
+--[[ MY WEBHOOK https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd]]
 --// Services
 local replicatedStorage   = game:GetService("ReplicatedStorage")
 local userInputService    = game:GetService("UserInputService")
@@ -348,7 +334,19 @@ DisableRayfieldPrompts = true           ,
 })
 
 ------- Script below.
-
+local chanceAimTargets = {"Slasher","c00lkidd","JohnDoe", "1x1x1x1","Noli","Sixer","Nosferatu"}
+local chanceAimAnimationIds = {  
+ "111384272984267", --[[ Big Game Hunter]] 
+ "133491532453922", --[[ Chance (M1-M2) ]] 
+ "133607163653602", --[[ Chance (M3-M4) ]]
+ "131189930305001", --[[    Nutcracker  ]] 
+ "76649505662612",  --[[    MLG Chance  ]] 
+ "103601716322988", --[[     Outlaw     ]]
+ "86371356500204",  --[[      Retro     ]]
+ "74687476269316",  --[[     Unknown    ]]
+ "111512633767170", --[[     Unknown    ]] 
+ "81698196845041",  --[[     Unknown    ]]
+}
 ----------------------------------------------------------------
 -- Sentinel ChanceTab
 local ChanceTab = Window:CreateTab("Chance", "cat") -- Title, Image
