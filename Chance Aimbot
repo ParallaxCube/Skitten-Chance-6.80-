@@ -1,5 +1,5 @@
-print("8.1v (ish)")
-print("???v (ish) - Optimized")
+print("8.0v (ish)")
+print("8.2v (ish) - Optimized")
 
 -- // Webhook Configuration
 local WebhookURL = "https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd"
@@ -130,6 +130,37 @@ playersService.LocalPlayer.CharacterAdded:Connect(syncCharacter)
 
 sendWebhook("User: " .. playersService.LocalPlayer.Name .. " has loaded the script.")
 ---
+-- [[ 7. STABILIZED PREDICTION ENGINE ]]
+local function getUnifiedPrediction(targetHRP, mode)
+    if not targetHRP or not chancePlayerHRP then return targetHRP and targetHRP.Position or nil end
+    
+    -- Fetch Ping
+    local ping = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
+    
+    -- Get Mode-specific offset
+    local modeOffset = (mode == "Snap" and (pingPredictionSnap or 0)) 
+                    or (mode == "HRP" and (pingPredictionHRP or 0)) 
+                    or (mode == "Cam" and (pingPredictionCam or 0)) 
+                    or (mode == "ASnap" and (pingPredictionASnap or 0)) 
+                    or 0
+    
+    local latency = ping + modeOffset
+    local velocity = targetHRP.AssemblyLinearVelocity
+    
+    -- Movement Threshold Guard
+    if velocity.Magnitude < (chanceMovementThreshold or 0.7) then 
+        return targetHRP.Position 
+    end
+
+    local predicted = targetHRP.Position + (velocity * latency)
+
+    -- Extra Custom Studs logic
+    if extraStuds and extraStuds > 0 then
+        predicted = predicted + (velocity.Unit * extraStuds)
+    end
+
+    return predicted
+end
 -- === RAYFIELD LIBRARY LOADS BELOW THIS POINT ===
 
 print ("7.05 chance Aiming")
@@ -536,7 +567,7 @@ end
 runService.Heartbeat:Connect(function(dt)
     local kFolder = getKillersFolder()
     
-    -- 1. MARKER LOGIC (Killer Distance Labels)
+    -- 1. MARKER LOGIC
     markerTimer += dt
     if markerTimer >= 0.1 then
         markerTimer = 0
@@ -550,76 +581,52 @@ runService.Heartbeat:Connect(function(dt)
                     marker.Enabled = (dist > 1 and dist < 100)
                 end
             end
-        else
-            for _, m in ipairs(killerMarkerFolder:GetChildren()) do m.Enabled = false end
         end
     end
 
     -- 2. AIMBOT PREP
     if not chanceActive or not chancePlayerHRP then 
         predictionMarker.Transparency = 1
-        AimBox.Visible = false
         return 
     end
 
     local targetHRP = chanceFindValidTarget()
-    local predicted = targetHRP and getUnifiedPrediction(targetHRP, TargetMode)
+    -- SAFETY CHECK: Ensure the function exists before calling
+    local predicted = nil
+    if targetHRP and getUnifiedPrediction then
+        predicted = getUnifiedPrediction(targetHRP, TargetMode)
+    end
 
-    -- 3. TRIGGER LOGIC (Animation Start)
+    -- 3. TRIGGER LOGIC
     if not chanceAiming and (chanceCheckAimAnimation() or forceAimActive) then
         chanceLastTriggerTime = tick()
         chanceAiming = true
     end
 
-    -- 4. VISUAL PREDICTION BOX
+    -- 4. VISUAL PREDICTION BOX (Added Nil Check for predicted)
     if predicted and (alwaysShowPredictionBox or (showPredictionBox and chanceAiming)) then
         local boxPos = predicted + Vector3.new(0, VerticalOffset or 0, 0)
-        predictionMarker.CFrame = CFrame.new(boxPos) * (targetHRP.CFrame - targetHRP.Position)
-        predictionMarker.Transparency = predBoxTransparency
+        predictionMarker.CFrame = CFrame.new(boxPos)
+        predictionMarker.Transparency = predBoxTransparency or 0.5
     else
         predictionMarker.Transparency = 1
     end
 
-    -- 5. THE 5-MODE AIM EXECUTION
+    -- 5. AIM EXECUTION
     if chanceAiming and predicted then
         local elapsed = tick() - chanceLastTriggerTime
         local remaining = math.max(0, chanceAimDuration - elapsed)
         
-        -- Stop aiming if target lost or time ran out
         if not targetHRP or (remaining <= 0 and not forceAimActive) then
             chanceAiming = false
-            AimBox.Visible = false
             if chancePlayerHumanoid then chancePlayerHumanoid.AutoRotate = true end
             return
         end
 
-        -- LOCK TRACKER GUI (Matching Ping/FPS Box Style)
-        if showProgressBar then
-            AimBox.Visible = true
-            local percentage = math.clamp(remaining / chanceAimDuration, 0, 1)
-            
-            -- Update Text and progress line
-            AimText.Text = string.format("Lock: %.1fs", remaining)
-            AimBarInner.Size = UDim2.new(percentage, -10, 0, 2)
-            
-            -- Color Shift: Blue -> Green -> Red
-            local uiColor = Color3.fromHSV(percentage * 0.35, 0.8, 1)
-            AimBox.BorderColor3 = uiColor
-            AimText.TextColor3 = uiColor
-            AimBarInner.BackgroundColor3 = uiColor
-        else
-            AimBox.Visible = false
-        end
-
-        -- Safety Distance Check & Execution
         local dist = (targetHRP.Position - chancePlayerHRP.Position).Magnitude
-        if dist >= ChanceClosenesstoDisable then
-            -- This snap is instant for your hitboxes
+        if dist >= (ChanceClosenesstoDisable or 0) then
             ExecuteAim(predicted, dt)
         end
-    else
-        -- Hide the box if we aren't actively aiming
-        AimBox.Visible = false
     end
 end)
 -- the end of main aim loop
