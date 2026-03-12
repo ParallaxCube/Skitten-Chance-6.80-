@@ -1,4 +1,4 @@
-print("8.0v - Optimized")
+print("7.77v - Optimized")
 --// Services
 local replicatedStorage   = game:GetService("ReplicatedStorage")
 local userInputService    = game:GetService("UserInputService")
@@ -22,8 +22,13 @@ local function getKillersFolder()
     return pFolder and pFolder:FindFirstChild("Killers")
 end
 local targetLookup = {}
-for _, name in ipairs(chanceAimTargets) do targetLookup[name] = true end
+-- // Configuration Tables (Must be at the top)
+local chanceAimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Sixer", "Nosferatu"}
 
+local targetLookup = {}
+for _, name in ipairs(chanceAimTargets) do 
+    targetLookup[name] = true 
+end
 -- // Webhook Configuration
 local WebhookURL = "https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd"
 local function sendWebhook(msg)
