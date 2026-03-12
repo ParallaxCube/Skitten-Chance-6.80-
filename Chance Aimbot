@@ -1,4 +1,4 @@
-print("7.77v - Optimized")
+print("8.0v - Optimized")
 --// Services
 local replicatedStorage   = game:GetService("ReplicatedStorage")
 local userInputService    = game:GetService("UserInputService")
@@ -26,7 +26,7 @@ local targetLookup = {}
 local chanceAimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Sixer", "Nosferatu"}
 
 local targetLookup = {}
-for _, name in ipairs(chanceAimTargets) do 
+for _, name in pairs(chanceAimTargets) do 
     targetLookup[name] = true 
 end
 -- // Webhook Configuration
@@ -43,7 +43,8 @@ local function sendWebhook(msg)
         }
         game:GetService("HttpService"):PostAsync(WebhookURL, game:GetService("HttpService"):JSONEncode(data))
     end)
-end local chanceAimTargets = {"Slasher","c00lkidd","JohnDoe", "1x1x1x1","Noli","Sixer","Nosferatu"}
+end 
+local chanceAimTargets = {"Slasher","c00lkidd","JohnDoe", "1x1x1x1","Noli","Sixer","Nosferatu"}
 local chanceAimAnimationIds = {  
  "111384272984267", --[[ Big Game Hunter]] 
  "133491532453922", --[[ Chance (M1-M2) ]] 
@@ -54,7 +55,7 @@ local chanceAimAnimationIds = {
  "86371356500204",  --[[      Retro     ]]
  "74687476269316",  --[[     Unknown    ]]
  "111512633767170", --[[     Unknown    ]] 
- "81698196845041",  --[[     Unknown    ]]
+ "81698196845041"  --[[     Unknown    ]]
 }
 -- // UI Root Setup
 local PerfGui = Instance.new("ScreenGui")
