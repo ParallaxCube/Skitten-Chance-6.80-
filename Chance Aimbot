@@ -1,32 +1,28 @@
-
- 
-print ("7.05 chance Aiming")
-
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-                  Name = "7.01v",
+                  Name = "SnapCat v7.001",
                   Icon = "cat"          ,
-          LoadingTitle = "7.01v" ,
-       LoadingSubtitle = "7.01v" ,
-              ShowText = "7.01v" ,
+          LoadingTitle = "Gimme a sec.." ,
+       LoadingSubtitle = "by Iamskitten" ,
+              ShowText = "heh-" ,
                  Theme = "Default"      ,
        ToggleUIKeybind = "K"            ,
 DisableRayfieldPrompts = true           ,
   DisableBuildWarnings = false          ,
    ConfigurationSaving = {
                Enabled = true           ,
-            FolderName = "cAIM___7.04v" ,
-              FileName = "cAIM__7.04v" },
+            FolderName = "cAIM___7.001v" ,
+              FileName = "cAIM__7.001v" },
                Discord = {
                Enabled = false          ,
                 Invite = ""             ,
          RememberJoins = true          },
              KeySystem = false          ,
            KeySettings = {
-                 Title = "7.01v" ,
-              Subtitle = "7.01v" ,
-                  Note = "7.01v" ,
-              FileName = "cAIM_7.04v" ,
+                 Title = "7.001v" ,
+              Subtitle = "7.001v" ,
+                  Note = "7.001v" ,
+              FileName = "cAIM_7.001v" ,
                SaveKey = false          ,
        GrabKeyFromSite = false          ,
                    Key = {"1"}
