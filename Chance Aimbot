@@ -1,5 +1,28 @@
-print("8.0v (ish)")
-print("8.2v (ish) - Optimized")
+print("8.0v - Optimized")
+--// Services
+local replicatedStorage   = game:GetService("ReplicatedStorage")
+local userInputService    = game:GetService("UserInputService")
+local materialService     = game:GetService("MaterialService")
+local textChatService     = game:GetService("TextChatService")
+local workspaceService    = game:GetService("Workspace")
+local lightingService     = game:GetService("Lighting")
+local HttpService         = game:GetService("HttpService")
+local playersService      = game:GetService("Players")
+local runService          = game:GetService("RunService")
+local debrisService       = game:GetService("Debris")
+local statsService        = game:GetService("Stats")
+-- Add these to your "Variable Initialization" section at the top
+local pingPredictionSnap, pingPredictionHRP, pingPredictionCam, pingPredictionASnap = 0, 0, 0, 0
+local extraStuds = 0
+local autoPredictionEnabled = false
+local alwaysShowPredictionBox = false
+local predBoxTransparency = 0.5
+local function getKillersFolder()
+    local pFolder = workspaceService:FindFirstChild("Players")
+    return pFolder and pFolder:FindFirstChild("Killers")
+end
+local targetLookup = {}
+for _, name in ipairs(chanceAimTargets) do targetLookup[name] = true end
 
 -- // Webhook Configuration
 local WebhookURL = "https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd"
@@ -28,25 +51,6 @@ local chanceAimAnimationIds = {
  "111512633767170", --[[     Unknown    ]] 
  "81698196845041",  --[[     Unknown    ]]
 }
-
---// Services
-local replicatedStorage   = game:GetService("ReplicatedStorage")
-local userInputService    = game:GetService("UserInputService")
-local materialService     = game:GetService("MaterialService")
-local textChatService     = game:GetService("TextChatService")
-local workspaceService    = game:GetService("Workspace")
-local lightingService     = game:GetService("Lighting")
-local HttpService         = game:GetService("HttpService")
-local playersService      = game:GetService("Players")
-local runService          = game:GetService("RunService")
-local debrisService       = game:GetService("Debris")
-local statsService        = game:GetService("Stats")
-local function getKillersFolder()
-    local pFolder = workspaceService:FindFirstChild("Players")
-    return pFolder and pFolder:FindFirstChild("Killers")
-end
-local targetLookup = {}
-for _, name in ipairs(chanceAimTargets) do targetLookup[name] = true end
 -- // UI Root Setup
 local PerfGui = Instance.new("ScreenGui")
 PerfGui.Name = "ModularPerformanceHUD"
@@ -64,6 +68,10 @@ local HRPSmoothing, CAMSmoothing = 0.7, 0.7
 local chanceMovementThreshold = 0.7
 local ChanceClosenesstoDisable = 0
 
+local killerMarkerFolder = Instance.new("Folder", workspace)
+killerMarkerFolder.Name = "ChanceAimMarkers"
+local markerTimer = 0
+local killerMarkerEnabled = false
 -- // Helper Functions
 local function createMiniBox(boxName, startPos) 
     local frame = Instance.new("Frame") 
@@ -161,6 +169,122 @@ local function getUnifiedPrediction(targetHRP, mode)
 
     return predicted
 end
+
+-- [[ 1. CHARACTER & STATE INITIALIZATION ]]
+local chancePlayerHumanoid = nil
+local chancePlayerHRP = nil
+local chanceActiveTrack = nil
+local chanceAiming = false
+local chanceOriginalWS = 16
+local chanceOriginalAutoRotate = true
+
+-- Setup character references properly
+local function chanceConfigureCharacter(char)
+    if not char then return end
+    chancePlayerHumanoid = char:WaitForChild("Humanoid", 10)
+    chancePlayerHRP = char:WaitForChild("HumanoidRootPart", 10)
+end
+
+-- Initialize and connect respawn listener
+if playersService.LocalPlayer.Character then
+    chanceConfigureCharacter(playersService.LocalPlayer.Character)
+end
+playersService.LocalPlayer.CharacterAdded:Connect(chanceConfigureCharacter)
+
+-- [[ 2. TARGET & PREDICTION FUNCTIONS ]]
+
+-- Find valid killer target (Fixed pathing logic)
+local function chanceFindValidTarget()
+    local kFolder = getKillersFolder() -- Use the helper function you made!
+    if not kFolder then return nil end
+
+    for _, name in ipairs(chanceAimTargets) do
+        local target = kFolder:FindFirstChild(name)
+        if target then
+            local hrp = target:FindFirstChild("HumanoidRootPart")
+            local hum = target:FindFirstChild("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                return hrp
+            end
+        end
+    end
+    return nil
+end
+
+-- Prediction Logic (Fixed Table Lookup)
+local function chancePredictPosition(targetHRP)
+    if not targetHRP or not statsService:FindFirstChild("Network") then return targetHRP.Position end
+    
+    local ping = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
+    local velocity = targetHRP.AssemblyLinearVelocity
+    
+    if velocity.Magnitude > (tonumber(chanceMovementThreshold) or 0.5) then
+        local pingPred = targetHRP.Position + (velocity * ping)
+        
+        -- Get extra studs from the Dropdown selection
+        local extra = tonumber(chancePredictionModes[chancePredictionMode]) or 0
+        if chancePredictionMode == "Custom + Ping" then
+            extra = tonumber(CustomStudsAddedToPing) or 0
+        end
+        
+        return pingPred + (velocity.Unit * extra)
+    end
+    return targetHRP.Position
+end
+
+-- Animation Detection
+local function chanceCheckAimAnimation()
+    if not chancePlayerHumanoid or chanceActiveTrack then return false end
+
+    for _, track in ipairs(chancePlayerHumanoid:GetPlayingAnimationTracks()) do
+        local id = track.Animation.AnimationId:match("%d+")
+        if id and table.find(chanceAimAnimationIds, id) then
+            chanceActiveTrack = track
+            track.Stopped:Once(function() chanceActiveTrack = nil end)
+            return true
+        end
+    end
+    return false
+end
+
+-- [[ 3. THE MAIN EXECUTION LOOP ]]
+runService.RenderStepped:Connect(function()
+    -- Safety checks to prevent nil errors
+    if not chanceActive or not chancePlayerHumanoid or not chancePlayerHRP then 
+        return 
+    end
+
+    -- Trigger start
+    if not chanceAiming and chanceCheckAimAnimation() then
+        chanceLastTriggerTime = tick()
+        chanceAiming = true
+        chanceOriginalWS = chancePlayerHumanoid.WalkSpeed
+        chanceOriginalAutoRotate = chancePlayerHumanoid.AutoRotate
+    end
+
+    if chanceAiming then
+        local targetHRP = chanceFindValidTarget()
+        local elapsed = tick() - (tonumber(chanceLastTriggerTime) or 0)
+        local duration = tonumber(chanceAimDuration) or 1.6
+        local safetyDist = tonumber(CloseNessToTurnOffAimbotIFtooClose) or 6
+
+        -- Stop conditions
+        if not targetHRP or (targetHRP.Position - chancePlayerHRP.Position).Magnitude < safetyDist or elapsed > duration then
+            chanceAiming = false
+            chancePlayerHumanoid.AutoRotate = chanceOriginalAutoRotate
+            return
+        end
+
+        -- Aim Execution
+        chancePlayerHumanoid.AutoRotate = false
+        local predicted = chancePredictPosition(targetHRP)
+        if predicted then
+            local dir = (predicted - chancePlayerHRP.Position).Unit
+            local yaw = math.atan2(-dir.X, -dir.Z)
+            chancePlayerHRP.CFrame = CFrame.new(chancePlayerHRP.Position) * CFrame.Angles(0, yaw, 0)
+        end
+    end
+end)
 -- === RAYFIELD LIBRARY LOADS BELOW THIS POINT ===
 
 print ("7.05 chance Aiming")
@@ -564,14 +688,21 @@ end
 -- [[ 2. MAIN AIM & PREDICTION LOOP ]]
 -- [[ main aim loop ]]
 -- [[ 2. MAIN AIM & PREDICTION LOOP ]]
-runService.Heartbeat:Connect(function(dt)
     local kFolder = getKillersFolder()
+runService.Heartbeat:Connect(function(dt)
+-- Re-fetch only if kFolder was deleted or haven't been found yet
+    if not kFolder or not kFolder.Parent then
+        kFolder = getKillersFolder()
+    end
     
-    -- 1. MARKER LOGIC
+    -- If it's still nil, the folder doesn't exist yet, so we exit early
+    if not kFolder then return end
+    
+   -- 1. MARKER LOGIC (Runs every 0.1s)
     markerTimer += dt
     if markerTimer >= 0.1 then
         markerTimer = 0
-        if killerMarkerEnabled and chancePlayerHRP and kFolder then
+        if killerMarkerEnabled and chancePlayerHRP then
             for _, killer in ipairs(kFolder:GetChildren()) do
                 local hrp = killer:FindFirstChild("HumanoidRootPart")
                 if hrp then
@@ -587,11 +718,12 @@ runService.Heartbeat:Connect(function(dt)
     -- 2. AIMBOT PREP
     if not chanceActive or not chancePlayerHRP then 
         predictionMarker.Transparency = 1
+        MainBar.Visible = false
+        AimBox.Visible = false
         return 
     end
 
     local targetHRP = chanceFindValidTarget()
-    -- SAFETY CHECK: Ensure the function exists before calling
     local predicted = nil
     if targetHRP and getUnifiedPrediction then
         predicted = getUnifiedPrediction(targetHRP, TargetMode)
@@ -603,7 +735,7 @@ runService.Heartbeat:Connect(function(dt)
         chanceAiming = true
     end
 
-    -- 4. VISUAL PREDICTION BOX (Added Nil Check for predicted)
+    -- 4. VISUAL PREDICTION BOX
     if predicted and (alwaysShowPredictionBox or (showPredictionBox and chanceAiming)) then
         local boxPos = predicted + Vector3.new(0, VerticalOffset or 0, 0)
         predictionMarker.CFrame = CFrame.new(boxPos)
@@ -612,13 +744,28 @@ runService.Heartbeat:Connect(function(dt)
         predictionMarker.Transparency = 1
     end
 
-    -- 5. AIM EXECUTION
+    -- 5. AIM EXECUTION & UI SYNC
     if chanceAiming and predicted then
         local elapsed = tick() - chanceLastTriggerTime
-        local remaining = math.max(0, chanceAimDuration - elapsed)
+        local duration = tonumber(chanceAimDuration) or 1.6
+        local remaining = math.max(0, duration - elapsed)
         
+        -- Update UI Progress Bars
+        local progress = remaining / duration
+        if showProgressBar then
+            MainBar.Visible = true
+            ProgressBar.Size = UDim2.new(progress, 0, 1, 0)
+            
+            AimBox.Visible = true
+            AimBarInner.Size = UDim2.new(progress, -10, 0, 2)
+            AimText.Text = string.format("LOCKED: %.1fs", remaining)
+        end
+
+        -- Stop conditions
         if not targetHRP or (remaining <= 0 and not forceAimActive) then
             chanceAiming = false
+            MainBar.Visible = false
+            AimBox.Visible = false
             if chancePlayerHumanoid then chancePlayerHumanoid.AutoRotate = true end
             return
         end
@@ -627,6 +774,10 @@ runService.Heartbeat:Connect(function(dt)
         if dist >= (ChanceClosenesstoDisable or 0) then
             ExecuteAim(predicted, dt)
         end
+    else
+        -- Hide UI if not aiming
+        MainBar.Visible = false
+        AimBox.Visible = false
     end
 end)
 -- the end of main aim loop
@@ -695,6 +846,7 @@ local PingBox, PingText = createMiniBox("PingBox", UDim2.new(0.5, 0, 0.05, 0)) l
 local lastIter = tick() RunService.RenderStepped:Connect(function() if not (PingBox.Visible or FpsBox.Visible or MemBox.Visible) then return end local now = tick() local fps = math.floor(1 / (now - lastIter));lastIter = now local ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue()) local mem = math.floor(Stats:GetTotalMemoryUsageMb())  if PingBox.Visible then  PingText.Text = "Ping: " .. ping end if FpsBox.Visible then   FpsText.Text = "FPS: " .. fps end if MemBox.Visible then   MemText.Text = "Mem: " .. mem .. "MB" end PingBox.BorderColor3 = (ping > 150) and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100) FpsBox.BorderColor3  = (fps < 30)   and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100) MemBox.BorderColor3  = (mem > 1400) and Color3.fromRGB(255, 100, 100) or Color3.fromRGB(100, 255, 100) PingText.TextColor3 = PingBox.BorderColor3 FpsText.TextColor3  = FpsBox.BorderColor3 MemText.TextColor3  = MemBox.BorderColor3 end)
 -- [[ 3. RAYFIELD TOGGLES FOR INTERFACE TAB ]]
  
+-- [[ 3. FINAL INTERFACE TOGGLES ]]
 InterfaceTab:CreateSection("Live Hardware Trackers")
 
 InterfaceTab:CreateToggle({
@@ -723,124 +875,9 @@ InterfaceTab:CreateToggle({
     CurrentValue = false, 
     Flag = "MaxPerfToggle", 
     Callback = function(state) 
-        maxPerformanceActive = state 
         if state then 
             if setfpscap then setfpscap(120) end 
-            Rayfield:Notify({
-                Title = "Performance Mode", 
-                Content = "Aim Maxed & 120 FPS Requested", 
-                Duration = 1.5 
-            }) 
-        else 
-            if setfpscap then setfpscap(60) end 
-        end 
-    end, 
-})
-
-InterfaceTab:CreateToggle({
-    Name = "Auto Battery Saver (WIP)",
-    CurrentValue = true, 
-    Flag = "BatterySaverToggle", 
-    Callback = function(state) end,
-})
-
- 
-
-InterfaceTab:CreateColorPicker({ 
-    Name = "Prediction Box Color", 
-    Color = Color3.fromRGB(25, 167, 255), 
-    Flag = "PredColor", 
-    Callback = function(Value) 
-        predBoxColor = Value 
-        predictionMarker.Color = Value 
-        -- Sync the UI bar color to the box color for a themed look
-        ProgressBar.BackgroundColor3 = Value
-        AimBarInner.BackgroundColor3 = Value
-    end
-})
-
-InterfaceTab:CreateSlider({
-    Name = "Box Transparency", 
-    Range = {0, 1}, 
-    Increment = 0.1, 
-    Suffix = " Alpha", 
-    CurrentValue = 0.5, 
-    Flag = "PredAlpha", 
-    Callback = function(Value) 
-        predBoxTransparency = Value 
-        if showPredictionBox or alwaysShowPredictionBox then 
-            predictionMarker.Transparency = Value 
-        end 
-    end
-})
-
-InterfaceTab:CreateToggle({
-   Name = "Show Fixed Countdown Bar",
-   CurrentValue = false,
-   Flag = "AimBarToggle",
-   Callback = function(state)
-       showProgressBar = state
-       if not state then MainBar.Visible = false end
-   end,
-})
-
-InterfaceTab:CreateToggle({
-    Name = "Show Draggable Lock Tracker",
-    CurrentValue = false,
-    Flag = "AimTrackerToggle",
-    Callback = function(state)
-        showProgressBar = state
-        if not state then AimBox.Visible = false end
-    end,
-})
-
--- [[ 2. UPDATED INTERFACE TAB TOGGLES ]]
-InterfaceTab:CreateSection("Live Hardware Trackers")
-
-InterfaceTab:CreateToggle({
-    Name = "Show Ping Tracker",
-    CurrentValue = false,
-    Flag = "PingToggle",
-    Callback = function(state) PingBox.Visible = state end 
-})
-
-InterfaceTab:CreateToggle({
-    Name = "Show FPS Tracker", 
-    CurrentValue = false, 
-    Flag = "FpsToggle", 
-    Callback = function(state) FpsBox.Visible = state end 
-})
-
-InterfaceTab:CreateToggle({
-    Name = "Show Memory Tracker", 
-    CurrentValue = false, 
-    Flag = "MemToggle", 
-    Callback = function(state) MemBox.Visible = state end 
-})
-
-InterfaceTab:CreateToggle({
-    Name = "Show Draggable Lock Tracker",
-    CurrentValue = false,
-    Flag = "AimTrackerToggle",
-    Callback = function(state)
-        showProgressBar = state
-        if not state then AimBox.Visible = false end
-    end,
-})
-
-InterfaceTab:CreateToggle({
-    Name = "Max Performance (120 FPS)", 
-    CurrentValue = false, 
-    Flag = "MaxPerfToggle", 
-    Callback = function(state) 
-        maxPerformanceActive = state 
-        if state then 
-            if setfpscap then setfpscap(120) end 
-            Rayfield:Notify({
-                Title = "Performance Mode", 
-                Content = "120 FPS Requested", 
-                Duration = 2 
-            }) 
+            Rayfield:Notify({Title = "Performance", Content = "120 FPS Cap Set", Duration = 2}) 
         else 
             if setfpscap then setfpscap(60) end 
         end 
@@ -854,10 +891,9 @@ InterfaceTab:CreateColorPicker({
     Color = Color3.fromRGB(25, 167, 255), 
     Flag = "PredColor", 
     Callback = function(Value) 
-        predBoxColor = Value 
         predictionMarker.Color = Value 
-        ProgressBar.BackgroundColor3 = Value -- Syncs Fixed Bar
-        AimBarInner.BackgroundColor3 = Value -- Syncs Draggable Box
+        ProgressBar.BackgroundColor3 = Value 
+        AimBarInner.BackgroundColor3 = Value
     end
 })
 
@@ -871,8 +907,18 @@ InterfaceTab:CreateToggle({
    end,
 })
 
--- [[ 3. FINAL CONFIG LOAD ]]
-Rayfield:LoadConfiguration()
+InterfaceTab:CreateToggle({
+    Name = "Show Draggable Lock Tracker",
+    CurrentValue = false,
+    Flag = "AimTrackerToggle",
+    Callback = function(state)
+        showProgressBar = state -- Uses same logic as bar
+        if not state then AimBox.Visible = false end
+    end,
+})
 
+-- [[ FINAL CONFIG LOAD ]]
+Rayfield:LoadConfiguration()
+print("Chance Aim v8.0 Fully Loaded.")
 
 
