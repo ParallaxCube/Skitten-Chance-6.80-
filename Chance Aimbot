@@ -1,14 +1,14 @@
- local vERSionNumber = "7.01"
+
  
 print ("7.05 chance Aiming")
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-                  Name = vERSionNumber,
+                  Name = "7.01v",
                   Icon = "cat"          ,
-          LoadingTitle = vERSionNumber ,
-       LoadingSubtitle = vERSionNumber ,
-              ShowText = vERSionNumber ,
+          LoadingTitle = "7.01v" ,
+       LoadingSubtitle = "7.01v" ,
+              ShowText = "7.01v" ,
                  Theme = "Default"      ,
        ToggleUIKeybind = "K"            ,
 DisableRayfieldPrompts = true           ,
@@ -23,9 +23,9 @@ DisableRayfieldPrompts = true           ,
          RememberJoins = true          },
              KeySystem = false          ,
            KeySettings = {
-                 Title = vERSionNumber ,
-              Subtitle = vERSionNumber ,
-                  Note = vERSionNumber ,
+                 Title = "7.01v" ,
+              Subtitle = "7.01v" ,
+                  Note = "7.01v" ,
               FileName = "cAIM_7.04v" ,
                SaveKey = false          ,
        GrabKeyFromSite = false          ,
