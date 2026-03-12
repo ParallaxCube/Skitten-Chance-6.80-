@@ -1,4 +1,4 @@
-print("8.1v - Optimizedv2")
+print("8.0v - Optimized")
 --// Services
 local replicatedStorage   = game:GetService("ReplicatedStorage")
 local userInputService    = game:GetService("UserInputService")
@@ -696,53 +696,101 @@ end
 -- [[ 2. MAIN AIM & PREDICTION LOOP ]]
     local kFolder = getKillersFolder()
 runService.Heartbeat:Connect(function(dt)
+-- Re-fetch only if kFolder was deleted or haven't been found yet
     if not kFolder or not kFolder.Parent then
         kFolder = getKillersFolder()
     end
     
+    -- If it's still nil, the folder doesn't exist yet, so we exit early
     if not kFolder then return end
     
-    -- Safety check: Ensure UI exists before touching it [cite: 50]
-    local uiReady = (MainBar and ProgressBar and AimBox and AimBarInner)
-
-    if not chanceActive or not chancePlayerHRP then 
-        predictionMarker.Transparency = 1
-        if uiReady then
-            MainBar.Visible = false
-            AimBox.Visible = false
+   -- 1. MARKER LOGIC (Runs every 0.1s)
+    markerTimer += dt
+    if markerTimer >= 0.1 then
+        markerTimer = 0
+        if killerMarkerEnabled and chancePlayerHRP then
+            for _, killer in ipairs(kFolder:GetChildren()) do
+                local hrp = killer:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local marker = killerMarkerFolder:FindFirstChild(killer.Name.."Marker") or createKillerMarker(hrp, killer.Name)
+                    local dist = (hrp.Position - chancePlayerHRP.Position).Magnitude
+                    marker.DistanceText.Text = math.floor(dist)
+                    marker.Enabled = (dist > 1 and dist < 100)
+                end
+            end
         end
-        return 
     end
+
+    -- [[ 2. AIMBOT PREP - ERROR PROOFED ]]
+-- Check if UI elements exist to prevent "index nil" errors
+local uiComponentsReady = (MainBar ~= nil and AimBox ~= nil and predictionMarker ~= nil)
+
+if not chanceActive or not chancePlayerHRP then 
+    if predictionMarker then 
+      print("predictionMarker found line 730~")
+        predictionMarker.Transparency = 1 
+    end
+    
+    if uiComponentsReady then
+        MainBar.Visible = false
+        AimBox.Visible = false
+    end
+    return 
+end
 
     local targetHRP = chanceFindValidTarget()
     local predicted = nil
-    
-    -- Use the unified engine [cite: 10]
     if targetHRP and getUnifiedPrediction then
         predicted = getUnifiedPrediction(targetHRP, TargetMode)
     end
 
-    -- Trigger & UI Sync [cite: 53, 54]
-    if chanceAiming and predicted and uiReady then
-        local elapsed = tick() - (chanceLastTriggerTime or 0)
+    -- 3. TRIGGER LOGIC
+    if not chanceAiming and (chanceCheckAimAnimation() or forceAimActive) then
+        chanceLastTriggerTime = tick()
+        chanceAiming = true
+    end
+
+    -- 4. VISUAL PREDICTION BOX
+    if predicted and (alwaysShowPredictionBox or (showPredictionBox and chanceAiming)) then
+        local boxPos = predicted + Vector3.new(0, VerticalOffset or 0, 0)
+        predictionMarker.CFrame = CFrame.new(boxPos)
+        predictionMarker.Transparency = predBoxTransparency or 0.5
+    else
+        predictionMarker.Transparency = 1
+    end
+
+    -- 5. AIM EXECUTION & UI SYNC
+    if chanceAiming and predicted then
+        local elapsed = tick() - chanceLastTriggerTime
         local duration = tonumber(chanceAimDuration) or 1.6
         local remaining = math.max(0, duration - elapsed)
-        local progress = math.clamp(remaining / duration, 0, 1)
         
+        -- Update UI Progress Bars
+        local progress = remaining / duration
         if showProgressBar then
             MainBar.Visible = true
             ProgressBar.Size = UDim2.new(progress, 0, 1, 0)
+            
             AimBox.Visible = true
             AimBarInner.Size = UDim2.new(progress, -10, 0, 2)
             AimText.Text = string.format("LOCKED: %.1fs", remaining)
         end
-        
-        -- Execution [cite: 55]
+
+        -- Stop conditions
+        if not targetHRP or (remaining <= 0 and not forceAimActive) then
+            chanceAiming = false
+            MainBar.Visible = false
+            AimBox.Visible = false
+            if chancePlayerHumanoid then chancePlayerHumanoid.AutoRotate = true end
+            return
+        end
+
         local dist = (targetHRP.Position - chancePlayerHRP.Position).Magnitude
         if dist >= (ChanceClosenesstoDisable or 0) then
             ExecuteAim(predicted, dt)
         end
-    elseif uiReady then
+    else
+        -- Hide UI if not aiming
         MainBar.Visible = false
         AimBox.Visible = false
     end
