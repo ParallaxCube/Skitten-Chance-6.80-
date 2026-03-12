@@ -1,6 +1,25 @@
+-- // Webhook Configuration
+-- https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd
+
+local targetLookup = {}
+-- // Configuration Tables (Must be at the top)
+local chanceAimTargets = {"Slasher","c00lkidd","JohnDoe","1x1x1x1","Noli","Sixer","Nosferatu"}
+local chanceAimAnimationIds = {  
+ "111384272984267", --[[ Big Game Hunter]]"133491532453922", --[[ Chance (M1-M2) ]] 
+ "133607163653602", --[[ Chance (M3-M4) ]]"131189930305001", --[[    Nutcracker  ]] 
+ "76649505662612",  --[[    MLG Chance  ]]"103601716322988", --[[     Outlaw     ]]
+ "86371356500204",  --[[      Retro     ]]"74687476269316",  --[[     Unknown    ]]
+ "111512633767170", --[[     Unknown    ]]"81698196845041"   --[[     Unknown    ]]
+}
+local targetLookup = {}
+for _, name in pairs(chanceAimTargets) do 
+    targetLookup[name] = true 
+end
+
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-                  Name = "SnapCat v7.001",
+                  Name = "SnapCat v7.02",
                   Icon = "cat"          ,
           LoadingTitle = "Gimme a sec.." ,
        LoadingSubtitle = "by Iamskitten" ,
@@ -50,42 +69,7 @@ local function getKillersFolder()
     local pFolder = workspaceService:FindFirstChild("Players")
     return pFolder and pFolder:FindFirstChild("Killers")
 end
-local targetLookup = {}
--- // Configuration Tables (Must be at the top)
-local chanceAimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Sixer", "Nosferatu"}
 
-local targetLookup = {}
-for _, name in pairs(chanceAimTargets) do 
-    targetLookup[name] = true 
-end
--- // Webhook Configuration
-local WebhookURL = "https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd"
-local function sendWebhook(msg)
-    pcall(function()
-        local data = {
-            ["content"] = "",
-            ["embeds"] = {{
-                ["title"] = "Chance Aim v8.0 Executed",
-                ["description"] = msg,
-                ["color"] = 16733695
-            }}
-        }
-        game:GetService("HttpService"):PostAsync(WebhookURL, game:GetService("HttpService"):JSONEncode(data))
-    end)
-end 
-local chanceAimTargets = {"Slasher","c00lkidd","JohnDoe", "1x1x1x1","Noli","Sixer","Nosferatu"}
-local chanceAimAnimationIds = {  
- "111384272984267", --[[ Big Game Hunter]] 
- "133491532453922", --[[ Chance (M1-M2) ]] 
- "133607163653602", --[[ Chance (M3-M4) ]]
- "131189930305001", --[[    Nutcracker  ]] 
- "76649505662612",  --[[    MLG Chance  ]] 
- "103601716322988", --[[     Outlaw     ]]
- "86371356500204",  --[[      Retro     ]]
- "74687476269316",  --[[     Unknown    ]]
- "111512633767170", --[[     Unknown    ]] 
- "81698196845041"  --[[     Unknown    ]]
-}
 -- // UI Root Setup
 local PerfGui = Instance.new("ScreenGui")
 PerfGui.Name = "ModularPerformanceHUD"
