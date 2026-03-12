@@ -1,4 +1,37 @@
-print("8.0v - Optimized")
+ local vERSionNumber = "7.01"
+ 
+print ("7.05 chance Aiming")
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Window = Rayfield:CreateWindow({
+                  Name = vERSionNumber,
+                  Icon = "cat"          ,
+          LoadingTitle = vERSionNumber ,
+       LoadingSubtitle = vERSionNumber ,
+              ShowText = vERSionNumber ,
+                 Theme = "Default"      ,
+       ToggleUIKeybind = "K"            ,
+DisableRayfieldPrompts = true           ,
+  DisableBuildWarnings = false          ,
+   ConfigurationSaving = {
+               Enabled = true           ,
+            FolderName = "cAIM___7.04v" ,
+              FileName = "cAIM__7.04v" },
+               Discord = {
+               Enabled = false          ,
+                Invite = ""             ,
+         RememberJoins = true          },
+             KeySystem = false          ,
+           KeySettings = {
+                 Title = vERSionNumber ,
+              Subtitle = vERSionNumber ,
+                  Note = vERSionNumber ,
+              FileName = "cAIM_7.04v" ,
+               SaveKey = false          ,
+       GrabKeyFromSite = false          ,
+                   Key = {"1"}
+}
+}) 
 --// Services
 local replicatedStorage   = game:GetService("ReplicatedStorage")
 local userInputService    = game:GetService("UserInputService")
@@ -292,38 +325,34 @@ runService.RenderStepped:Connect(function()
     end
 end)
 -- === RAYFIELD LIBRARY LOADS BELOW THIS POINT ===
-
-print ("7.05 chance Aiming")
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({
-                  Name = "Version 7.40(+)",
-                  Icon = "cat"          ,
-          LoadingTitle = "Place_Holder" ,
-       LoadingSubtitle = "Place_Holder" ,
-              ShowText = "Place_Holder" ,
-                 Theme = "Default"      ,
-       ToggleUIKeybind = "K"            ,
-DisableRayfieldPrompts = true           ,
-  DisableBuildWarnings = false          ,
-   ConfigurationSaving = {
-               Enabled = true           ,
-            FolderName = "cAIM___7.04v" ,
-              FileName = "cAIM__7.04v" },
-               Discord = {
-               Enabled = false          ,
-                Invite = ""             ,
-         RememberJoins = true          },
-             KeySystem = false          ,
-           KeySettings = {
-                 Title = "Place_Holder" ,
-              Subtitle = "Place_Holder" ,
-                  Note = "Place_Holder" ,
-              FileName = "cAIM_7.04v" ,
-               SaveKey = false          ,
-       GrabKeyFromSite = false          ,
-                   Key = {"1"}
-}
-})
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
 
 ------- Script below.
 
@@ -849,15 +878,10 @@ local CornerInner = Instance.new("UICorner")
 CornerInner.CornerRadius = UDim.new(0, 2)
 CornerInner.Parent = AimBarInner
 InterfaceTab:CreateSection("UI Functions")
-
 InterfaceTab:CreateButton({
   Name = "kick urself", 
   Callback = function() 
-    print([[Lower value = smoother Higher value = snappier]])
-    game.Players.LocalPlayer:Kick("GOT YA!")
-    end
-  
-})
+    print([[Lower value = smoother Higher value = snappier]])game.Players.LocalPlayer:Kick("GOT YA!")end})
 InterfaceTab:CreateButton({  
   Name = "⚠ Print Locals ⚠", C
   allback = function()  
@@ -876,8 +900,7 @@ InterfaceTab:CreateButton({
     print("pingPredictionSnap       = " .. tostring(pingPredictionSnap)) 
     print("pingPredictionHRP        = " .. tostring(pingPredictionHRP)) 
     print("pingPredictionCam        = " .. tostring(pingPredictionCam)) 
-    print("⚠========================⚠")   
-    end})
+    print("⚠========================⚠")  end})
 -- [[ 1. SEPARATE PERFORMANCE GUIs (Draggable) ]]
 local Stats = game:GetService("Stats") local RunService = game:GetService("RunService") local CoreGui = game:GetService("CoreGui") local PerfGui = Instance.new("ScreenGui") PerfGui.Name = "ModularPerformanceHUD" PerfGui.ResetOnSpawn = false pcall(function() PerfGui.Parent = CoreGui end) if not PerfGui.Parent then PerfGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") end
 -- Helper function to create clean, matching mini-boxes
