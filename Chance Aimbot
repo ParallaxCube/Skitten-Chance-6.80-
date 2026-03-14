@@ -1,20 +1,29 @@
+-- Add these to your "Variable Initialization" section at the top
 -- // Webhook Configuration
 -- https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd
+--// Services
 
-local targetLookup = {}
+local replicatedStorage   = game:GetService("ReplicatedStorage")
+local userInputService    = game:GetService("UserInputService")
+local materialService     = game:GetService("MaterialService")
+local textChatService     = game:GetService("TextChatService")
+local workspaceService    = game:GetService("Workspace")
+local lightingService     = game:GetService("Lighting")
+local HttpService         = game:GetService("HttpService")
+local playersService      = game:GetService("Players")
+local runService          = game:GetService("RunService")
+local debrisService       = game:GetService("Debris")
+local statsService        = game:GetService("Stats")
 -- // Configuration Tables (Must be at the top)
+local targetLookup = {}
 local chanceAimTargets = {"Slasher","c00lkidd","JohnDoe","1x1x1x1","Noli","Sixer","Nosferatu"}
 local chanceAimAnimationIds = {  
  "111384272984267", --[[ Big Game Hunter]]"133491532453922", --[[ Chance (M1-M2) ]] 
  "133607163653602", --[[ Chance (M3-M4) ]]"131189930305001", --[[    Nutcracker  ]] 
  "76649505662612",  --[[    MLG Chance  ]]"103601716322988", --[[     Outlaw     ]]
  "86371356500204",  --[[      Retro     ]]"74687476269316",  --[[     Unknown    ]]
- "111512633767170", --[[     Unknown    ]]"81698196845041"   --[[     Unknown    ]]
+ "111512633767170", --[[     Unknown    ]]"81698196845041"   --[[     Unknown    ]] 
 }
-local targetLookup = {}
-for _, name in pairs(chanceAimTargets) do 
-    targetLookup[name] = true 
-end
 
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -47,77 +56,25 @@ DisableRayfieldPrompts = true           ,
                    Key = {"1"}
 }
 }) 
---// Services
-local replicatedStorage   = game:GetService("ReplicatedStorage")
-local userInputService    = game:GetService("UserInputService")
-local materialService     = game:GetService("MaterialService")
-local textChatService     = game:GetService("TextChatService")
-local workspaceService    = game:GetService("Workspace")
-local lightingService     = game:GetService("Lighting")
-local HttpService         = game:GetService("HttpService")
-local playersService      = game:GetService("Players")
-local runService          = game:GetService("RunService")
-local debrisService       = game:GetService("Debris")
-local statsService        = game:GetService("Stats")
--- Add these to your "Variable Initialization" section at the top
+local PerfGui = Instance.new("ScreenGui") PerfGui.Name = "ModularPerformanceHUD" PerfGui.ResetOnSpawn = false pcall(function() PerfGui.Parent = CoreGui end)
 local pingPredictionSnap, pingPredictionHRP, pingPredictionCam, pingPredictionASnap = 0, 0, 0, 0
-local extraStuds = 0
+local chanceActive, chanceAiming, forceAimActive = false, false, false
 local autoPredictionEnabled = false
 local alwaysShowPredictionBox = false
 local predBoxTransparency = 0.5
-local function getKillersFolder()
-    local pFolder = workspaceService:FindFirstChild("Players")
-    return pFolder and pFolder:FindFirstChild("Killers")
-end
-
--- // UI Root Setup
-local PerfGui = Instance.new("ScreenGui")
-PerfGui.Name = "ModularPerformanceHUD"
-PerfGui.ResetOnSpawn = false
-pcall(function() PerfGui.Parent = CoreGui end)
-
--- // Variable Initialization
-local SnapPower = 1.0
 local VerticalOffset = 0
+local SnapPower = 1.0
+local extraStuds = 0
 local camera = workspaceService.CurrentCamera
 local chancePlayerHumanoid, chancePlayerHRP = nil, nil
 local TargetMode = "Snap"
-local chanceActive, chanceAiming, forceAimActive = false, false, false
 local HRPSmoothing, CAMSmoothing = 0.7, 0.7
 local chanceMovementThreshold = 0.7
 local ChanceClosenesstoDisable = 0
-
 local killerMarkerFolder = Instance.new("Folder", workspace)
 killerMarkerFolder.Name = "ChanceAimMarkers"
 local markerTimer = 0
 local killerMarkerEnabled = false
--- // Helper Functions
-local function createMiniBox(boxName, startPos) 
-    local frame = Instance.new("Frame") 
-    frame.Name = boxName 
-    frame.Size = UDim2.new(0, 85, 0, 28) 
-    frame.Position = startPos 
-    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15) 
-    frame.BackgroundTransparency = 0.2 
-    frame.BorderSizePixel = 2 
-    frame.Active = true 
-    frame.Draggable = true 
-    frame.Visible = false   
-    frame.Parent = PerfGui 
-    
-    local corner = Instance.new("UICorner", frame) 
-    corner.CornerRadius = UDim.new(0, 6) 
-    
-    local label = Instance.new("TextLabel", frame) 
-    label.Size = UDim2.new(1, 0, 1, 0) 
-    label.BackgroundTransparency = 1 
-    label.Font = Enum.Font.Code 
-    label.TextSize = 13 
-    
-    return frame, label 
-end
-
--- // UI Elements
 local AimBox, AimText = createMiniBox("AimBox", UDim2.new(0.5, 0, 0.1, 0))
 local AimBarInner = Instance.new("Frame", AimBox)
 AimBarInner.Size = UDim2.new(1, -10, 0, 2)
@@ -125,69 +82,30 @@ AimBarInner.Position = UDim2.new(0, 5, 1, -5)
 AimBarInner.BackgroundColor3 = Color3.fromRGB(25, 167, 255)
 Instance.new("UICorner", AimBarInner).CornerRadius = UDim.new(0, 2)
 
+-- // Helper Functions
+local function getKillersFolder() local pFolder = workspaceService:FindFirstChild("Players") return pFolder and pFolder:FindFirstChild("Killers") end
+local function createMiniBox(boxName, startPos) local frame = Instance.new("Frame") frame.Name = boxName  frame.Size = UDim2.new(0, 85, 0, 28)  frame.Position = startPos  frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)  frame.BackgroundTransparency = 0.2  frame.BorderSizePixel = 2  frame.Active = true  frame.Draggable = true  frame.Visible = false    frame.Parent = PerfGui  local corner = Instance.new("UICorner", frame)  corner.CornerRadius = UDim.new(0, 6)  local label = Instance.new("TextLabel", frame)  label.Size = UDim2.new(1, 0, 1, 0)  label.BackgroundTransparency = 1  label.Font = Enum.Font.Code  label.TextSize = 13  return frame, label  end
 -- // Logic Blocks
-local function syncCharacter(char)
-    if not char then return end
-    chancePlayerHumanoid = char:WaitForChild("Humanoid", 10)
-    chancePlayerHRP = char:WaitForChild("HumanoidRootPart", 10)
-end
-
-local function ExecuteAim(predicted, dt)
-    if not chancePlayerHRP or not chancePlayerHumanoid then return end
-    local hrpPos = chancePlayerHRP.Position
-    local adjustedPredicted = predicted + Vector3.new(0, VerticalOffset, 0)
-    local flatTarget = Vector3.new(adjustedPredicted.X, hrpPos.Y, adjustedPredicted.Z)
-
-    if TargetMode == "Snap" or TargetMode == "ASnap" then
-        chancePlayerHumanoid.AutoRotate = false
-        local targetCF = CFrame.lookAt(hrpPos, flatTarget)
-        local lerpVal = (TargetMode == "Snap") and (SnapPower) or math.clamp(HRPSmoothing, 0.15, 0.45)
-        chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, lerpVal)
-    elseif TargetMode == "Cam" or TargetMode == "ACam" then
-        chancePlayerHumanoid.AutoRotate = true
-        local speedMult = (TargetMode == "ACam") and 1.3 or 1.0
-        local targetCF = CFrame.lookAt(camera.CFrame.Position, adjustedPredicted)
-        camera.CFrame = camera.CFrame:Lerp(targetCF, math.min((CAMSmoothing * speedMult) * dt * 60, 1))
-    end
-end
-
--- // Init
-if playersService.LocalPlayer.Character then syncCharacter(playersService.LocalPlayer.Character) end
-playersService.LocalPlayer.CharacterAdded:Connect(syncCharacter)
-
-sendWebhook("User: " .. playersService.LocalPlayer.Name .. " has loaded the script.")
----
+local function syncCharacter(char) if not char then return end chancePlayerHumanoid = char:WaitForChild("Humanoid", 10) chancePlayerHRP = char:WaitForChild("HumanoidRootPart", 10) end
+local function ExecuteAim(predicted, dt) if not chancePlayerHRP or not chancePlayerHumanoid then return end local hrpPos = chancePlayerHRP.Position local adjustedPredicted = predicted + Vector3.new(0, VerticalOffset, 0) local flatTarget = Vector3.new(adjustedPredicted.X, hrpPos.Y, adjustedPredicted.Z) if TargetMode == "Snap" or TargetMode == "ASnap" then chancePlayerHumanoid.AutoRotate = false local targetCF = CFrame.lookAt(hrpPos, flatTarget) local lerpVal = (TargetMode == "Snap") and (SnapPower) or math.clamp(HRPSmoothing, 0.15, 0.45) chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, lerpVal) elseif TargetMode == "Cam" or TargetMode == "ACam" then chancePlayerHumanoid.AutoRotate = true local speedMult = (TargetMode == "ACam") and 1.3 or 1.0 local targetCF = CFrame.lookAt(camera.CFrame.Position, adjustedPredicted) camera.CFrame = camera.CFrame:Lerp(targetCF, math.min((CAMSmoothing * speedMult) * dt * 60, 1)) end end
+if playersService.LocalPlayer.Character then syncCharacter(playersService.LocalPlayer.Character) end playersService.LocalPlayer.CharacterAdded:Connect(syncCharacter)
 -- [[ 7. STABILIZED PREDICTION ENGINE ]]
-local function getUnifiedPrediction(targetHRP, mode)
-    if not targetHRP or not chancePlayerHRP then return targetHRP and targetHRP.Position or nil end
-    
-    -- Fetch Ping
-    local ping = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
-    
-    -- Get Mode-specific offset
-    local modeOffset = (mode == "Snap" and (pingPredictionSnap or 0)) 
-                    or (mode == "HRP" and (pingPredictionHRP or 0)) 
-                    or (mode == "Cam" and (pingPredictionCam or 0)) 
-                    or (mode == "ASnap" and (pingPredictionASnap or 0)) 
-                    or 0
-    
-    local latency = ping + modeOffset
-    local velocity = targetHRP.AssemblyLinearVelocity
-    
-    -- Movement Threshold Guard
-    if velocity.Magnitude < (chanceMovementThreshold or 0.7) then 
-        return targetHRP.Position 
-    end
+local function getUnifiedPrediction(targetHRP, mode) if not targetHRP or not chancePlayerHRP then return targetHRP and targetHRP.Position or nil end
 
-    local predicted = targetHRP.Position + (velocity * latency)
+-- Fetch Ping
+local ping = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
+-- Get Mode-specific offset
+local modeOffset =
+(mode ==  "Snap"  and (pingPredictionSnap or 0)) 
+or (mode ==  "HRP"   and (pingPredictionHRP or 0)) 
+or (mode ==  "Cam"   and (pingPredictionCam or 0)) 
+or (mode == "ASnap"  and (pingPredictionASnap or 0)) 
+or 0
 
-    -- Extra Custom Studs logic
-    if extraStuds and extraStuds > 0 then
-        predicted = predicted + (velocity.Unit * extraStuds)
-    end
-
-    return predicted
-end
+local latency = ping + modeOffset local velocity = targetHRP.AssemblyLinearVelocity
+if velocity.Magnitude < (chanceMovementThreshold or 0.7) then return targetHRP.Position end 
+local predicted = targetHRP.Position + (velocity * latency)
+if extraStuds and extraStuds > 0 then predicted = predicted + (velocity.Unit * extraStuds) end return predicted end
 
 -- [[ 1. CHARACTER & STATE INITIALIZATION ]]
 local chancePlayerHumanoid = nil
@@ -304,35 +222,6 @@ runService.RenderStepped:Connect(function()
         end
     end
 end)
--- === RAYFIELD LIBRARY LOADS BELOW THIS POINT ===
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
 
 ------- Script below.
 
@@ -965,5 +854,4 @@ InterfaceTab:CreateToggle({
 -- [[ FINAL CONFIG LOAD ]]
 Rayfield:LoadConfiguration()
 print("Chance Aim v8.0 Fully Loaded.")
-
 
