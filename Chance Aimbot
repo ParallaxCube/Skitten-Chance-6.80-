@@ -1,6 +1,6 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 -- https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd
-
+-- loadstring(game:HttpGet("https://raw.githubusercontent.com/catsakenkeysystem/catsakendoesnothaveakeysystem/refs/heads/main/%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25202020202.lua"))()
 -- [[ 1. SERVICES ]]
 local replicatedStorage   = game:GetService("ReplicatedStorage")
 local userInputService    = game:GetService("UserInputService")
@@ -14,6 +14,7 @@ local runService          = game:GetService("RunService")
 local debrisService       = game:GetService("Debris")
 local statsService        = game:GetService("Stats")
 local CoreGui             = game:GetService("CoreGui")
+local GuiService          = game:GetService("GuiService")
 local camera = workspaceService.CurrentCamera
 
 -- [[ 2. CONFIGURATION TABLES ]]
@@ -962,7 +963,7 @@ local hudUpdateTimer = 0
 local hudUpdateInterval = 0.5 
 local framesRendered = 0
 
-runService.Heartbeat:Connect(function(dt)
+runService.RenderStepped:Connect(function(dt)
     framesRendered += 1
     hudUpdateTimer += dt
 
@@ -1294,24 +1295,46 @@ WorldTab:CreateToggle({
 
 
 ----------------------------------------------------------------
--- [[ DEVICE SPOOFER MODULE (UNIVERSAL + FORSAKEN BYPASS) ]]
+-- [[ DEVICE SPOOFER MODULE (WITH AUTO-SAVE SETTINGS) ]]
 ----------------------------------------------------------------
 local SpoofSection = WorldTab:CreateSection("Hardware Spoofing")
 
-local spoofMode = "None" -- "None", "PC", "Mobile", "Console"
+local saveFileName = "MySpooferSettings.json"
+local spoofMode = "None" -- Default fallback
 
--- [[ 1. UNIVERSAL SPOOFING (HOOKS) ]]
+-- [[ 1. LOAD SAVED SETTINGS ]]
+-- This runs the millisecond the script executes to get your saved choice
+if isfile and readfile and isfile(saveFileName) then
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(readfile(saveFileName))
+    end)
+    if success and type(data) == "table" and data.SpoofMode then
+        spoofMode = data.SpoofMode
+        print("[Spoofer] Successfully loaded saved mode: " .. spoofMode)
+    end
+end
+
+-- [[ 2. UNIVERSAL SPOOFING (HOOKS + GUISERVICE + CONTROL MODULE BYPASS) ]]
+local GuiService = game:GetService("GuiService")
+
 local oldIndex
 oldIndex = hookmetamethod(game, "__index", function(self, key)
-    if not checkcaller() and self == userInputService then
+    if not checkcaller() and self == userInputService and tostring(getcallingscript()) ~= "ControlModule" then
         if spoofMode == "PC" then
             if key == "TouchEnabled" then return false end
             if key == "KeyboardEnabled" then return true end
             if key == "MouseEnabled" then return true end
+            if key == "GamepadEnabled" then return false end
         elseif spoofMode == "Mobile" then
             if key == "TouchEnabled" then return true end
             if key == "KeyboardEnabled" then return false end
             if key == "MouseEnabled" then return false end
+            if key == "GamepadEnabled" then return false end
+        elseif spoofMode == "Console" then
+            if key == "TouchEnabled" then return false end
+            if key == "KeyboardEnabled" then return false end
+            if key == "MouseEnabled" then return false end
+            if key == "GamepadEnabled" then return true end
         end
     end
     return oldIndex(self, key)
@@ -1321,65 +1344,111 @@ local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
     local method = getnamecallmethod()
     
-    if not checkcaller() and self == userInputService and method == "GetLastInputType" then
-        if spoofMode == "PC" then
-            return Enum.UserInputType.Keyboard
-        elseif spoofMode == "Mobile" then
-            return Enum.UserInputType.Touch
+    if not checkcaller() then
+        if self == GuiService or self == userInputService then
+            if method == "GetPlatform" then
+                if spoofMode == "PC" then return Enum.Platform.Windows end
+                if spoofMode == "Mobile" then return Enum.Platform.IOS end
+                if spoofMode == "Console" then return Enum.Platform.XBoxOne end
+            elseif method == "IsTenFootInterface" then
+                return (spoofMode == "Console")
+            elseif method == "GetPlatformName" then
+                if spoofMode == "PC" then return "Windows" end
+                if spoofMode == "Mobile" then return "IOS" end
+                if spoofMode == "Console" then return "XboxOne" end
+            end
+        end
+
+        if self == userInputService and method == "GetLastInputType" then
+            if spoofMode == "PC" then return Enum.UserInputType.Keyboard end
+            if spoofMode == "Mobile" then return Enum.UserInputType.Touch end
+            if spoofMode == "Console" then return Enum.UserInputType.Gamepad1 end
         end
     end
     
     return oldNamecall(self, ...)
 end)
 
--- [[ 2. FORSAKEN SPECIFIC NETWORK SPOOF (From your old script) ]]
-local forsakenNetworkModule = nil
+-- [[ 3. FORSAKEN MEMORY OVERRIDER ]]
+local function ApplyAggressiveSpoof(targetMode)
+    if targetMode == "None" then return end
+    local isPC = (targetMode == "PC")
 
--- Safely try to find the Forsaken network module without breaking the script in other games
-pcall(function()
-    local modulesFolder = replicatedStorage:FindFirstChild("Modules")
-    if modulesFolder then
-        local netModule = modulesFolder:FindFirstChild("Network")
+    pcall(function()
+        local netModule = replicatedStorage:FindFirstChild("Modules"):FindFirstChild("Network")
         if netModule then
-            forsakenNetworkModule = require(netModule)
+            local Network = require(netModule)
+            if Network and type(Network.FireServerConnection) == "function" then
+                Network:FireServerConnection("SetDevice", "REMOTE_EVENT", targetMode)
+            end
         end
-    end
-end)
+    end)
 
-local function ApplyForsakenSpoof()
-    if spoofMode ~= "None" and forsakenNetworkModule and type(forsakenNetworkModule.FireServerConnection) == "function" then
-        pcall(function()
-            forsakenNetworkModule:FireServerConnection("SetDevice", "REMOTE_EVENT", spoofMode)
-        end)
+    if getloadedmodules then
+        for _, module in ipairs(getloadedmodules()) do
+            pcall(function()
+                local env = require(module)
+                if type(env) == "table" then
+                    if rawget(env, "Device") then env.Device = targetMode end
+                    if rawget(env, "DeviceType") then env.DeviceType = targetMode end
+                    if rawget(env, "CurrentDevice") then env.CurrentDevice = targetMode end
+                    if rawget(env, "IsMobile") ~= nil then env.IsMobile = not isPC end
+                    if rawget(env, "isMobile") ~= nil then env.isMobile = not isPC end
+                    if rawget(env, "IsPC") ~= nil then env.IsPC = isPC end
+                    if rawget(env, "isPC") ~= nil then env.isPC = isPC end
+                    if rawget(env, "Value") and (env.Value == "Mobile" or env.Value == "PC" or env.Value == "Console") then
+                        env.Value = targetMode
+                    end
+                end
+            end)
+        end
     end
 end
 
--- Update Forsaken when input actually changes
-userInputService.LastInputTypeChanged:Connect(ApplyForsakenSpoof)
+-- If the script loads a saved mode from autoexecute, apply it to Forsaken immediately
+if spoofMode ~= "None" then
+    task.spawn(function()
+        if not game:IsLoaded() then
+            game.Loaded:Wait()
+        end
+        task.wait(0.5) -- Buffer for UI to build
+        ApplyAggressiveSpoof(spoofMode)
+    end)
+end
 
--- Safety loop to enforce it (Running slowly instead of while wait() to prevent lag)
-task.spawn(function()
-    while task.wait(2) do
-        ApplyForsakenSpoof()
-    end
-end)
-
+-- [[ 4. UI DROPDOWN & SAVE LOGIC ]]
 WorldTab:CreateDropdown({
     Name = "Spoof Hardware Identity",
     Options = {"None", "PC", "Mobile", "Console"},
-    CurrentOption = {"None"},
+    CurrentOption = {spoofMode}, -- Sets the dropdown visual to your saved choice
     MultipleOptions = false,
     Flag = "HardwareSpoofDropdown",
     Callback = function(Option)
         spoofMode = Option[1]
-        ApplyForsakenSpoof() -- Force the server update immediately
+        
+        -- Save the choice to your executor's folder
+        if writefile then
+            local saveData = { SpoofMode = spoofMode }
+            writefile(saveFileName, HttpService:JSONEncode(saveData))
+        end
+
+        ApplyAggressiveSpoof(spoofMode)
         
         Rayfield:Notify({
-            Title = "Hardware Spoofed",
-            Content = "Spoof active: " .. spoofMode,
-            Duration = 3
+            Title = "Saved & Ready to Rejoin",
+            Content = "Spoof to: " .. spoofMode,
+            Duration = 2
         })
     end,
 })
+
+-- Safety loop
+task.spawn(function()
+    while task.wait(3) do
+        if spoofMode ~= "None" then
+            ApplyAggressiveSpoof(spoofMode)
+        end
+    end
+end)
 Rayfield:LoadConfiguration()
 print("Chance Aim v10.6 Fully Loaded.")
