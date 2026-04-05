@@ -315,9 +315,9 @@ end
 ----------------------------------------------------------------
 local predictionMarker = Instance.new("Part")
 predictionMarker.Name = "AimPredictionBox"
-predictionMarker.Size = Vector3.new(2.5, 2, 2) 
-predictionMarker.Transparency = 1 
-predictionMarker.Color = Color3.fromRGB(25, 167, 255)
+predictionMarker.Size = Vector3.new(1, 12, 1) 
+predictionMarker.Transparency = 0.95 
+predictionMarker.Color = Color3.fromRGB(253, 6, 87)
 predictionMarker.CanCollide = false
 predictionMarker.Anchored = true
 predictionMarker.Material = Enum.Material.Neon 
@@ -327,12 +327,12 @@ predictionMarker.Parent = workspace
 local safetySphere = Instance.new("Part")
 safetySphere.Name = "AimSafetySphere"
 safetySphere.Shape = Enum.PartType.Ball
-safetySphere.Color = Color3.fromRGB(255, 0, 0) -- Red
+safetySphere.Color = Color3.fromRGB(255, 50, 0) -- Red
 safetySphere.Material = Enum.Material.ForceField -- Visually looks like a protective bubble
-safetySphere.Transparency = 1 -- Start hidden
+safetySphere.Transparency = 0.95 -- Start hidden
 safetySphere.CanCollide = false
 safetySphere.Anchored = true
-safetySphere.CastShadow = false
+safetySphere.CastShadow = true
 safetySphere.Parent = workspace
 
 -- [[ 11. THE MAIN EXECUTION LOOP ]]
@@ -1416,39 +1416,60 @@ if spoofMode ~= "None" then
     end)
 end
 
--- [[ 4. UI DROPDOWN & SAVE LOGIC ]]
+-- [[ UI DROPDOWNS & SAVE LOGIC ]]
+local spoofMode = "None"
+local spoofMethod = "ServerOnly"
+
+-- Quick function so we don't have to write this twice
+local function SaveSpooferSettings()
+    if writefile then
+        local saveData = { 
+            SpoofMode = spoofMode, 
+            SpoofMethod = spoofMethod 
+        }
+        writefile(saveFileName, HttpService:JSONEncode(saveData))
+    end
+end
+
 WorldTab:CreateDropdown({
-    Name = "Spoof Hardware Identity",
+    Name = "1. Spoof Hardware Identity",
     Options = {"None", "PC", "Mobile", "Console"},
-    CurrentOption = {spoofMode}, -- Sets the dropdown visual to your saved choice
+    CurrentOption = {"None"}, 
     MultipleOptions = false,
     Flag = "HardwareSpoofDropdown",
     Callback = function(Option)
         spoofMode = Option[1]
+        SaveSpooferSettings()
         
-        -- Save the choice to your executor's folder
-        if writefile then
-            local saveData = { SpoofMode = spoofMode }
-            writefile(saveFileName, HttpService:JSONEncode(saveData))
+        -- Try to apply the server side instantly just in case
+        if spoofMode ~= "None" then
+            ApplyAggressiveSpoof(spoofMode)
         end
-
-        ApplyAggressiveSpoof(spoofMode)
         
         Rayfield:Notify({
-            Title = "Saved & Ready to Rejoin",
-            Content = "Spoof to: " .. spoofMode,
+            Title = "Hardware Saved",
+            Content = "You are spoofing as: " .. spoofMode,
             Duration = 2
         })
     end,
 })
 
--- Safety loop
-task.spawn(function()
-    while task.wait(3) do
-        if spoofMode ~= "None" then
-            ApplyAggressiveSpoof(spoofMode)
-        end
-    end
-end)
+WorldTab:CreateDropdown({
+    Name = "2. Spoof Method (Rejoin to apply!)",
+    Options = {"ServerOnly", "Full"},
+    CurrentOption = {"ServerOnly"}, 
+    MultipleOptions = false,
+    Flag = "SpoofMethodDropdown",
+    Callback = function(Option)
+        spoofMethod = Option[1]
+        SaveSpooferSettings()
+        
+        Rayfield:Notify({
+            Title = "Method Saved",
+            Content = "Please REJOIN the game for the method change to apply!",
+            Duration = 3
+        })
+    end,
+})
 Rayfield:LoadConfiguration()
 print("Chance Aim v10.6 Fully Loaded.")
