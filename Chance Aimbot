@@ -1332,13 +1332,13 @@ oldIndex = hookmetamethod(game, "__index", function(self, key)
     if not checkcaller() and self == userInputService and tostring(getcallingscript()) ~= "ControlModule" then
         if spoofMode == "PC" then
             if key == "TouchEnabled" then return true end
-            if key == "KeyboardEnabled" then return false end
+            if key == "KeyboardEnabled" then return true end
             if key == "MouseEnabled" then return true end
             if key == "GamepadEnabled" then return false end
         elseif spoofMode == "Mobile" then
             if key == "TouchEnabled" then return true end
             if key == "KeyboardEnabled" then return false end
-            if key == "MouseEnabled" then return true end
+            if key == "MouseEnabled" then return false end
             if key == "GamepadEnabled" then return false end
         elseif spoofMode == "Console" then
             if key == "TouchEnabled" then return false end
@@ -1421,7 +1421,7 @@ if spoofMode ~= "None" then
         if not game:IsLoaded() then
             game.Loaded:Wait()
         end
-        task.wait(0.5) -- Buffer for UI to build
+        
         ApplyAggressiveSpoof(spoofMode)
     end)
 end
