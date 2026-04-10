@@ -16,7 +16,18 @@ local statsService        = game:GetService("Stats")
 local CoreGui             = game:GetService("CoreGui")
 local GuiService          = game:GetService("GuiService")
 local camera = workspaceService.CurrentCamera
+local statsService = game:GetService("Stats")
 
+local smoothedPing = 0.1
+local function getPing()
+    local raw = 0.1
+    pcall(function()
+        raw = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
+    end)
+
+    smoothedPing = smoothedPing + (raw - smoothedPing) * 0.15
+    return math.clamp(smoothedPing, 0.03, 0.2)
+end
 -- [[ 2. CONFIGURATION TABLES ]]
 local targetLookup = {}
 local chanceAimTargets = {
@@ -200,41 +211,40 @@ if playersService.LocalPlayer.Character then
 end 
 playersService.LocalPlayer.CharacterAdded:Connect(syncCharacter)
 
--- [[ 8. STABILIZED PREDICTION ENGINE ]]
-local function getUnifiedPrediction(targetHRP, mode) 
+-- [[ 8. STABILIZED PREDICTION ENGINE]]
+local statsService = game:GetService("Stats")
+
+local smoothedPing = 0.1
+local function getPing()
+    local raw = 0.1
+    pcall(function()
+        raw = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
+    end)
+
+    smoothedPing = smoothedPing + (raw - smoothedPing) * 0.15
+    return math.clamp(smoothedPing, 0.03, 0.2)
+end
+
+local function getUnifiedPrediction(targetHRP, mode)
     if not targetHRP or not chancePlayerHRP then 
         return targetHRP and targetHRP.Position or nil 
     end
 
-    local ping = 0
-    pcall(function()
-        ping = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
-    end)
-    
-    local modeOffset = 
-          (mode ==  "Snap"  and (pingPredictionSnap or 0)) 
-       or (mode ==  "HRP"   and (pingPredictionHRP or 0)) 
-       or (mode ==  "Cam"   and (pingPredictionCam or 0)) 
-        or (mode == "ASnap"  and (pingPredictionASnap or 0)) 
-        or (mode == "ACam"  and (pingPredictionASnap or 0)) 
-        or 0
-
-    local latency = ping + modeOffset 
     local velocity = targetHRP.AssemblyLinearVelocity
-    
-    if velocity.Magnitude < (chanceMovementThreshold or 0.7) then 
-        return targetHRP.Position 
-    end 
-    
-    local predicted = targetHRP.Position + (velocity * latency)
-    
-    if extraStuds and extraStuds > 0 then 
-        predicted = predicted + (velocity.Unit * extraStuds) 
-    end 
-    
-    return predicted 
-end
+    local latency = getPing()
 
+    -- stop micro jitter
+    if velocity.Magnitude < 1.5 then
+        return targetHRP.Position
+    end
+
+    local predicted = targetHRP.Position + (velocity * latency)
+
+    -- reduce overflick (VERY IMPORTANT)
+    predicted = predicted:Lerp(targetHRP.Position, 0.1)
+
+    return predicted
+end
 -- [[ 9. CHARACTER & STATE INITIALIZATION ]]
 local chanceActiveTrack = nil
 local chanceOriginalWS = 16
@@ -1321,14 +1331,14 @@ local oldIndex
 oldIndex = hookmetamethod(game, "__index", function(self, key)
     if not checkcaller() and self == userInputService and tostring(getcallingscript()) ~= "ControlModule" then
         if spoofMode == "PC" then
-            if key == "TouchEnabled" then return false end
-            if key == "KeyboardEnabled" then return true end
+            if key == "TouchEnabled" then return true end
+            if key == "KeyboardEnabled" then return false end
             if key == "MouseEnabled" then return true end
             if key == "GamepadEnabled" then return false end
         elseif spoofMode == "Mobile" then
             if key == "TouchEnabled" then return true end
             if key == "KeyboardEnabled" then return false end
-            if key == "MouseEnabled" then return false end
+            if key == "MouseEnabled" then return true end
             if key == "GamepadEnabled" then return false end
         elseif spoofMode == "Console" then
             if key == "TouchEnabled" then return false end
@@ -1354,7 +1364,7 @@ oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
                 return (spoofMode == "Console")
             elseif method == "GetPlatformName" then
                 if spoofMode == "PC" then return "Windows" end
-                if spoofMode == "Mobile" then return "IOS" end
+                if spoofMode == "Mobile" then return "Android" end
                 if spoofMode == "Console" then return "XboxOne" end
             end
         end
