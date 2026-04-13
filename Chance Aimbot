@@ -1,4 +1,4 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/RF2/refs/heads/main/RF2_Mod_v1.1'))()
 -- https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd
 -- loadstring(game:HttpGet("https://raw.githubusercontent.com/catsakenkeysystem/catsakendoesnothaveakeysystem/refs/heads/main/%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25202020202.lua"))()
 -- [[ 1. SERVICES ]]
