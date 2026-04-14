@@ -18,9 +18,9 @@ local GuiService          = game:GetService("GuiService")
 local camera = workspaceService.CurrentCamera
 local statsService = game:GetService("Stats")
 
-local smoothedPing = 0.1
+local smoothedPing = 0.05
 local function getPing()
-    local raw = 0.1
+    local raw = 0.05
     pcall(function()
         raw = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
     end)
