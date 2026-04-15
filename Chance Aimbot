@@ -54,7 +54,7 @@ local chanceAimAnimationIds = {
 
 -- // Configuration & Settings
 local TargetMode                = "Snap"
-local SnapPower                 = 1.0
+local SnapPower                 = 7.0
 local VerticalOffset            = 0
 local extraStuds                = 0
 local ChanceClosenesstoDisArm   = 0
