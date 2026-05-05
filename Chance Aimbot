@@ -1,6 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/RF2/refs/heads/main/RF2_Mod_v1.1'))()
 -- https://discord.com/api/webhooks/1481251321360158856/zvG-F-fpC1SslV7GKeMVSgEBZfr4hpvMh-45f0UALGlvcWQrYVKD_se3EaX6byobNcSd
 -- loadstring(game:HttpGet("https://raw.githubusercontent.com/catsakenkeysystem/catsakendoesnothaveakeysystem/refs/heads/main/%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%26%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25%25202020202.lua"))()
+
 -- [[ 1. SERVICES ]]
 local replicatedStorage   = game:GetService("ReplicatedStorage")
 local userInputService    = game:GetService("UserInputService")
@@ -16,11 +17,10 @@ local statsService        = game:GetService("Stats")
 local CoreGui             = game:GetService("CoreGui")
 local GuiService          = game:GetService("GuiService")
 local camera = workspaceService.CurrentCamera
-local statsService = game:GetService("Stats")
 
-local smoothedPing = 0.05
+local smoothedPing = 0
 local function getPing()
-    local raw = 0.05
+    local raw = 0
     pcall(function()
         raw = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
     end)
@@ -28,6 +28,7 @@ local function getPing()
     smoothedPing = smoothedPing + (raw - smoothedPing) * 0.15
     return math.clamp(smoothedPing, 0.03, 0.2)
 end
+
 -- [[ 2. CONFIGURATION TABLES ]]
 local targetLookup = {}
 local chanceAimTargets = {
@@ -45,10 +46,10 @@ local chanceAimAnimationIds = {
  "133607163653602",--[[ Chance (M3-M4) ]]
  "131189930305001",--[[    Nutcracker  ]] 
  "76649505662612", --[[    MLG Chance  ]]
- "103601716322988",--[[     Outlaw     ]]
- "74687476269316", --[[     Unknown    ]]
- "111512633767170",--[[     Unknown    ]] 
- "81698196845041", --[[     Unknown    ]]
+ "103601716322988",--[[      Outlaw     ]]
+ "74687476269316", --[[      Unknown    ]]
+ "111512633767170",--[[      Unknown    ]] 
+ "81698196845041", --[[      Unknown    ]]
  "86371356500204", --[[      Retro     ]]
 }
 
@@ -58,6 +59,14 @@ local SnapPower                 = 7.0
 local VerticalOffset            = 0
 local extraStuds                = 0
 local ChanceClosenesstoDisArm   = 0
+
+-- [[ NEW UPGRADES VARIABLES ]]
+local AimFOV = 100
+local HitChance = 100
+local ReactionDelay = 0
+local ShakeReduction = 0
+local MinFPS = 30
+local SmartSwitch = false
 
 -- [[ ADDED: MISSING VARIABLE INITIALIZATIONS ]]
 local chancePredictionMode      = "Ping Only"
@@ -202,7 +211,10 @@ local function ExecuteAim(predicted, dt)
         chancePlayerHumanoid.AutoRotate = true 
         local speedMult = (TargetMode == "ACam") and 1.3 or 1.0 
         local targetCF = CFrame.lookAt(camera.CFrame.Position, adjustedPredicted) 
-        camera.CFrame = camera.CFrame:Lerp(targetCF, math.min((CAMSmoothing * speedMult) * dt * 60, 1)) 
+        -- Modified for Shake Reduction Upgrade
+        local baseLerp = math.min((CAMSmoothing * speedMult) * dt * 60, 1)
+        local finalLerp = baseLerp * (1 - ShakeReduction) 
+        camera.CFrame = camera.CFrame:Lerp(targetCF, finalLerp) 
     end 
 end
 
@@ -212,19 +224,6 @@ end
 playersService.LocalPlayer.CharacterAdded:Connect(syncCharacter)
 
 -- [[ 8. STABILIZED PREDICTION ENGINE]]
-local statsService = game:GetService("Stats")
-
-local smoothedPing = 0.1
-local function getPing()
-    local raw = 0.1
-    pcall(function()
-        raw = statsService.Network.ServerStatsItem["Data Ping"]:GetValue() / 1000
-    end)
-
-    smoothedPing = smoothedPing + (raw - smoothedPing) * 0.15
-    return math.clamp(smoothedPing, 0.03, 0.2)
-end
-
 local function getUnifiedPrediction(targetHRP, mode)
     if not targetHRP or not chancePlayerHRP then 
         return targetHRP and targetHRP.Position or nil 
@@ -245,6 +244,7 @@ local function getUnifiedPrediction(targetHRP, mode)
 
     return predicted
 end
+
 -- [[ 9. CHARACTER & STATE INITIALIZATION ]]
 local chanceActiveTrack = nil
 local chanceOriginalWS = 16
@@ -267,17 +267,29 @@ local function chanceFindValidTarget()
     local kFolder = getKillersFolder() 
     if not kFolder then return nil end
 
+    local closestTarget = nil
+    local shortestDist = math.huge
+
     for _, name in ipairs(chanceAimTargets) do
         local target = kFolder:FindFirstChild(name)
         if target then
             local hrp = target:FindFirstChild("HumanoidRootPart")
             local hum = target:FindFirstChild("Humanoid")
             if hrp and hum and hum.Health > 0 then
-                return hrp
+                -- Modified for Smart Switch Option
+                if SmartSwitch and chancePlayerHRP then
+                    local dist = (hrp.Position - chancePlayerHRP.Position).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closestTarget = hrp
+                    end
+                else
+                    return hrp
+                end
             end
         end
     end
-    return nil
+    return closestTarget
 end
 
 local function chancePredictPosition(targetHRP)
@@ -678,6 +690,70 @@ local AdvancedSystemInputs4 = ChanceTab:CreateInput({
 })
 
 ----------------------------------------------------------------
+-- [[ NEW UPGRADES UI INJECTIONS ]]
+----------------------------------------------------------------
+ChanceTab:CreateSection("Targeting Logic Upgrades")
+
+ChanceTab:CreateSlider({
+    Name = "Aim FOV (Range Limit)",
+    Range = {10, 500},
+    Increment = 5,
+    Suffix = " studs",
+    CurrentValue = 100,
+    Flag = "AimFOVSlider",
+    Callback = function(val) AimFOV = val end,
+})
+
+ChanceTab:CreateToggle({
+    Name = "Smart Target Switching",
+    CurrentValue = false,
+    Flag = "SmartSwitchToggle",
+    Callback = function(val) SmartSwitch = val end,
+})
+
+ChanceTab:CreateSection("Humanization & Legitimacy Upgrades")
+
+ChanceTab:CreateSlider({
+    Name = "Hit Chance %",
+    Range = {0, 100},
+    Increment = 1,
+    Suffix = "%",
+    CurrentValue = 100,
+    Flag = "HitChanceSlider",
+    Callback = function(val) HitChance = val end,
+})
+
+ChanceTab:CreateSlider({
+    Name = "Reaction Delay",
+    Range = {0, 0.5},
+    Increment = 0.01,
+    Suffix = " sec",
+    CurrentValue = 0,
+    Flag = "ReactionDelaySlider",
+    Callback = function(val) ReactionDelay = val end,
+})
+
+ChanceTab:CreateSlider({
+    Name = "Camera Stability",
+    Range = {0, 1},
+    Increment = 0.05,
+    CurrentValue = 0,
+    Flag = "ShakeReductionSlider",
+    Callback = function(val) ShakeReduction = val end,
+})
+
+ChanceTab:CreateSection("Optimization Upgrades")
+
+ChanceTab:CreateSlider({
+    Name = "Min FPS Before Disable",
+    Range = {10, 120},
+    Increment = 5,
+    CurrentValue = 30,
+    Flag = "MinFPSSlider",
+    Callback = function(val) MinFPS = val end,
+})
+
+----------------------------------------------------------------
 -- [[ 4. CORE FUNCTIONS ]]
 ----------------------------------------------------------------
 
@@ -726,6 +802,10 @@ end
 local kFolder = getKillersFolder()
 
 runService.Heartbeat:Connect(function(dt)
+    -- ADDED UPGRADE CHECK: Kill logic if FPS is below user's threshold
+    local currentFPS = 1 / dt
+    if currentFPS < MinFPS then return end 
+
     if not kFolder or not kFolder.Parent then
         kFolder = getKillersFolder()
     end
@@ -801,17 +881,6 @@ runService.Heartbeat:Connect(function(dt)
         local duration = tonumber(chanceAimDuration) or 1.6
         local remaining = math.max(0, duration - elapsed)
         
-        -- [[ UPDATED: UI REWORK TO ALLOW SCREEN TRACKER DECOUPLING ]]
-        -- -- LINE if showProgressBar and MainBar and AimBox then
-        -- -- LINE    MainBar.Visible = true
-        -- -- LINE    ProgressBar.Size = UDim2.new(progress, 0, 1, 0)
-        -- -- LINE    AimBox.Visible = true
-        -- -- LINE    AimBarInner.Size = UDim2.new(progress, -10, 0, 2)
-        -- -- LINE    if AimText then
-        -- -- LINE        AimText.Text = string.format("LOCKED: %.1fs", remaining)
-        -- -- LINE    end
-        -- -- LINE end
-
         local progress = remaining / duration
         if MainBar and AimBox then
             if showProgressBar then
@@ -847,7 +916,6 @@ runService.Heartbeat:Connect(function(dt)
         end
 
         -- [[ UPDATED: TIED TO ESP PANEL TOGGLE ]]
-        -- -- LINE if targetHRP and targetHRP.Parent then
         if showAimTimerESP and targetHRP and targetHRP.Parent then
             local markerName = targetHRP.Parent.Name .. "Marker"
             local marker = killerMarkerFolder:FindFirstChild(markerName)
@@ -858,8 +926,16 @@ runService.Heartbeat:Connect(function(dt)
         end
 
         local dist = (targetHRP.Position - chancePlayerHRP.Position).Magnitude
-        if dist >= (ChanceClosenesstoDisArm or 0) then
-            ExecuteAim(predicted, dt)
+        
+        -- [[ ADDED UPGRADE LOGIC: AIM FOV, HIT CHANCE, AND SAFE REACTION DELAY ]]
+        if dist >= (ChanceClosenesstoDisArm or 0) and dist <= AimFOV then
+            -- Legitimacy Check (Hit Chance)
+            if math.random(1, 100) <= HitChance then
+                -- Non-yielding tick delay
+                if tick() - chanceLastTriggerTime >= ReactionDelay then
+                    ExecuteAim(predicted, dt)
+                end
+            end
         end
     else
         if MainBar then MainBar.Visible = false end
@@ -1092,17 +1168,6 @@ InterfaceTab:CreateToggle({
    end,
 })
 
--- [[ COMMENTED OUT: REPLACED WITH NEW PANEL TAB TOGGLES ]]
--- -- LINE InterfaceTab:CreateToggle({
--- -- LINE     Name = "Show Draggable Lock Tracker",
--- -- LINE     CurrentValue = false,
--- -- LINE     Flag = "AimTrackerToggle",
--- -- LINE     Callback = function(state)
--- -- LINE         showProgressBar = state
--- -- LINE         if not state then AimBox.Visible = false end
--- -- LINE     end,
--- -- LINE })
-
 ----------------------------------------------------------------
 -- [[ 10. PANEL TAB (NEW) ]]
 ----------------------------------------------------------------
@@ -1154,14 +1219,14 @@ local GuiService = game:GetService("GuiService")
 local MOBILE_THRESHOLD = 700 
 
 function DeviceManager.isMobile()
-	local size = Camera.ViewportSize
-	return size.X < MOBILE_THRESHOLD or size.Y < MOBILE_THRESHOLD
+    local size = Camera.ViewportSize
+    return size.X < MOBILE_THRESHOLD or size.Y < MOBILE_THRESHOLD
 end
 
 function DeviceManager.fillScreen(guiObject)
-	guiObject.Size = UDim2.fromScale(1, 1)
-	guiObject.Position = UDim2.fromScale(0.5, 0.5)
-	guiObject.AnchorPoint = Vector2.new(0.5, 0.5)
+    guiObject.Size = UDim2.fromScale(1, 1)
+    guiObject.Position = UDim2.fromScale(0.5, 0.5)
+    guiObject.AnchorPoint = Vector2.new(0.5, 0.5)
 end
 
 task.spawn(function()
@@ -1189,7 +1254,6 @@ task.spawn(function()
     Camera:GetPropertyChangedSignal("ViewportSize"):Connect(updateLayout)
 end)
 ---------------------------------------------------------------------------------------------
-
 
 ----------------------------------------------------------------
 -- [[ 11. WORLD & SPOOFING TAB (NEW) ]]
@@ -1303,7 +1367,6 @@ WorldTab:CreateToggle({
     end,
 })
 
-
 ----------------------------------------------------------------
 -- [[ DEVICE SPOOFER MODULE (WITH AUTO-SAVE SETTINGS) ]]
 ----------------------------------------------------------------
@@ -1313,7 +1376,6 @@ local saveFileName = "MySpooferSettings.json"
 local spoofMode = "None" -- Default fallback
 
 -- [[ 1. LOAD SAVED SETTINGS ]]
--- This runs the millisecond the script executes to get your saved choice
 if isfile and readfile and isfile(saveFileName) then
     local success, data = pcall(function()
         return HttpService:JSONDecode(readfile(saveFileName))
@@ -1324,9 +1386,7 @@ if isfile and readfile and isfile(saveFileName) then
     end
 end
 
--- [[ 2. UNIVERSAL SPOOFING (HOOKS + GUISERVICE + CONTROL MODULE BYPASS) ]]
-local GuiService = game:GetService("GuiService")
-
+-- [[ 2. UNIVERSAL SPOOFING ]]
 local oldIndex
 oldIndex = hookmetamethod(game, "__index", function(self, key)
     if not checkcaller() and self == userInputService and tostring(getcallingscript()) ~= "ControlModule" then
@@ -1415,7 +1475,6 @@ local function ApplyAggressiveSpoof(targetMode)
     end
 end
 
--- If the script loads a saved mode from autoexecute, apply it to Forsaken immediately
 if spoofMode ~= "None" then
     task.spawn(function()
         if not game:IsLoaded() then
@@ -1427,10 +1486,8 @@ if spoofMode ~= "None" then
 end
 
 -- [[ UI DROPDOWNS & SAVE LOGIC ]]
-local spoofMode = "None"
 local spoofMethod = "ServerOnly"
 
--- Quick function so we don't have to write this twice
 local function SaveSpooferSettings()
     if writefile then
         local saveData = { 
@@ -1451,7 +1508,6 @@ WorldTab:CreateDropdown({
         spoofMode = Option[1]
         SaveSpooferSettings()
         
-        -- Try to apply the server side instantly just in case
         if spoofMode ~= "None" then
             ApplyAggressiveSpoof(spoofMode)
         end
@@ -1481,5 +1537,6 @@ WorldTab:CreateDropdown({
         })
     end,
 })
+
 Rayfield:LoadConfiguration()
 print("Chance Aim v10.6 Fully Loaded.")
