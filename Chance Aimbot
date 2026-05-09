@@ -10,8 +10,9 @@
     ===========================================================================
 ]]--
 
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/RF2/refs/heads/main/RF2_Mod_v1.1'))()
+-- local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/RF2/refs/heads/main/RF2_Mod_v1.1'))()
 
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 -------------------------------------------------------------------------------
 -- [[ 1. SERVICES ]]
 -------------------------------------------------------------------------------
