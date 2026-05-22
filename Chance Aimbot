@@ -1,15 +1,4 @@
---[[
-    ===========================================================================
-    Chance Aim Master Script v12.1 (Combined V18 + V19/Vault)
-    Developed by Iamskitten
-    
-    Notes: 
-    - This is V18 and V19 combined into ONE script.
-    - All logic is separated by tabs. 
-    - V18 logic is fully preserved in the World / Spoofer tabs.
-    - V19 logic is fully preserved in the Chance / Movement / Panel / Vault tabs.
-    ===========================================================================
-]]--
+
 
 --local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/RF2/refs/heads/main/RF2_Mod_v1.1'))()
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
