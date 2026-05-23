@@ -1,7 +1,6 @@
+-- local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/RF2/refs/heads/main/RF2_Mod_v1.1'))()
 
-
---local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/RF2/refs/heads/main/RF2_Mod_v1.1'))()
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 -------------------------------------------------------------------------------
 -- [[ 1. SERVICES ]]
 -------------------------------------------------------------------------------
@@ -20,14 +19,14 @@ local camera              = workspaceService.CurrentCamera
 -- [[ 2. CONFIGURATION TABLES ]]
 -------------------------------------------------------------------------------
 local chanceAimTargets = {
-    "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", 
+    "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1",
     "Noli", "Sixer", "Nosferatu"
 }
 
-local chanceAimAnimationIds = {  
-    "111384272984267", "133491532453922", "133607163653602", 
-    "131189930305001", "76649505662612", "103601716322988", 
-    "74687476269316", "111512633767170", "81698196845041", "86371356500204", 
+local chanceAimAnimationIds = {
+    "111384272984267", "133491532453922", "133607163653602",
+    "131189930305001", "76649505662612", "103601716322988",
+    "74687476269316", "111512633767170", "81698196845041", "86371356500204",
 }
 
 -------------------------------------------------------------------------------
@@ -37,12 +36,12 @@ local TargetMode                = "AsSnap"
 local SnapPower                 = 1.0
 local VerticalOffset            = 0
 local extraStuds                = 0
-local ChanceClosenesstoDisArm   = 6
-local MaxSnapDistance           = 90
-local MinSnapSpeed              = 0.15
+local ChanceClosenesstoDisArm   = 0
+local MaxSnapDistance           = 140
+local MinSnapSpeed              = 1
 local useRawPing                = false
-local tpWalkEnabled             = false
-local tpWalkSpeed               = 0.05
+local tpWalkEnabled             = true
+local tpWalkSpeed               = 0.015
 local AimFOV                    = 100
 local HitChance                 = 100
 local ReactionDelay             = 0
@@ -86,12 +85,15 @@ local chanceOriginalWS          = 16
 local chanceOriginalAutoRotate  = true
 
 -------------------------------------------------------------------------------
--- [[ 3.5 VARIABLE DECLARATIONS (V18 / World / Spoofer) ]]
+-- [[ 3.5 VARIABLE DECLARATIONS (V18 / World / Reserved) ]]
+-- Spoofer UI tab is gone but all original variables are preserved here.
+-- isLagSwitchActive, lastTimeSent, SpoofedPingValue, etc. are kept intact
+-- because external aim logic you have built may reference them at runtime.
 -------------------------------------------------------------------------------
 local lightingSpoofActive     = false
-local SpoofMode               = "Ping"
+local SpoofMode               = "None"
 local SpoofedPingValue        = 0
-local SpoofedFPSValue         = 60
+local SpoofedFPSValue         = 120
 local randomPingVariance      = 0
 local randomFPSVariance       = 0
 local isLagSwitchActive       = false
@@ -113,29 +115,39 @@ local MainBar, ProgressBar, AimBox, AimBarInner, AimText
 local PingBox, FpsBox, PingText, FpsText
 
 -------------------------------------------------------------------------------
+-- [[ 3.6 VCURVE SETTINGS ]]
+-- These control the new VCurve aim mode. All tunable from the UI too.
+-------------------------------------------------------------------------------
+local VCurve_HRPWeight    = 0.6   -- how much HRP rotation contributes (0-1)
+local VCurve_CAMWeight    = 0.4   -- how much camera contributes (0-1)
+local VCurve_VelScale     = 1.5   -- velocity sensitivity multiplier
+local VCurve_CurveExp     = 3     -- ease exponent: 3=smooth, higher=more delayed
+local VCurve_EarlySnapPct = 0.25  -- fraction of lock time left before hard snap
+
+-------------------------------------------------------------------------------
 -- [[ 4. RAYFIELD UI SETUP ]]
 -------------------------------------------------------------------------------
 local Window = Rayfield:CreateWindow({
     Name = "Master Combine (V18 + V19 Vault)",
-    Icon = "cat",
+    Icon = "crosshair",
     LoadingTitle = "Loading Aimbot...",
     LoadingSubtitle = "by Iamskitten",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = true,
-    ConfigurationSaving = { 
-        Enabled = true, 
-        FolderName = "cAIM_Config", 
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "cAIM_Config",
         FileName = "cAIM_Combined"
     },
-}) 
+})
 
 -------------------------------------------------------------------------------
 -- [[ 5. CORE HELPERS & CHARACTER SYNC ]]
 -------------------------------------------------------------------------------
-local PerfGui = Instance.new("ScreenGui") 
-PerfGui.Name = "ModularPerformanceHUD" 
-PerfGui.ResetOnSpawn = false 
+local PerfGui = Instance.new("ScreenGui")
+PerfGui.Name = "ModularPerformanceHUD"
+PerfGui.ResetOnSpawn = false
 pcall(function() PerfGui.Parent = CoreGui end)
 
 local AimProgressGui = Instance.new("ScreenGui")
@@ -161,28 +173,28 @@ ProgressBar.Parent = MainBar
 Instance.new("UICorner", MainBar).CornerRadius = UDim.new(0, 4)
 Instance.new("UICorner", ProgressBar).CornerRadius = UDim.new(0, 4)
 
-local function createMiniBox(boxName, startPos) 
-    local frame = Instance.new("Frame") 
-    frame.Name = boxName  
-    frame.Size = UDim2.new(0, 85, 0, 28)  
-    frame.Position = startPos  
-    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)  
-    frame.BackgroundTransparency = 0.2  
-    frame.BorderSizePixel = 2  
-    frame.Visible = false    
-    frame.Parent = PerfGui  
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)  
-    local label = Instance.new("TextLabel", frame)  
-    label.Size = UDim2.new(1, 0, 1, 0)  
-    label.BackgroundTransparency = 1  
-    label.Font = Enum.Font.Code  
-    label.TextSize = 13  
-    return frame, label  
+local function createMiniBox(boxName, startPos)
+    local frame = Instance.new("Frame")
+    frame.Name = boxName
+    frame.Size = UDim2.new(0, 85, 0, 28)
+    frame.Position = startPos
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    frame.BackgroundTransparency = 0.2
+    frame.BorderSizePixel = 2
+    frame.Visible = false
+    frame.Parent = PerfGui
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.Code
+    label.TextSize = 13
+    return frame, label
 end
 
-PingBox, PingText = createMiniBox("PingBox", UDim2.new(1, -10, 0.05, 0)) 
+PingBox, PingText = createMiniBox("PingBox", UDim2.new(1, -10, 0.05, 0))
 PingBox.AnchorPoint = Vector2.new(1, 0)
-FpsBox, FpsText   = createMiniBox("FpsBox", UDim2.new(1, -10, 0.12, 0)) 
+FpsBox, FpsText   = createMiniBox("FpsBox", UDim2.new(1, -10, 0.12, 0))
 FpsBox.AnchorPoint = Vector2.new(1, 0)
 
 AimBox, AimText = createMiniBox("AimBox", UDim2.new(0.5, 0, 0.05, 50))
@@ -208,26 +220,26 @@ local function getPing()
     return math.clamp(smoothedPing, 0.03, 0.2)
 end
 
-local function getKillersFolder() 
-    local pFolder = workspaceService:FindFirstChild("Players") 
+local function getKillersFolder()
+    local pFolder = workspaceService:FindFirstChild("Players")
     if pFolder then return pFolder:FindFirstChild("Killers") end
     return nil
 end
 
-local function syncCharacter(char) 
-    if not char then return end 
-    chancePlayerHumanoid = char:WaitForChild("Humanoid", 10) 
-    chancePlayerHRP = char:WaitForChild("HumanoidRootPart", 10) 
+local function syncCharacter(char)
+    if not char then return end
+    chancePlayerHumanoid = char:WaitForChild("Humanoid", 10)
+    chancePlayerHRP = char:WaitForChild("HumanoidRootPart", 10)
 end
 
-if playersService.LocalPlayer.Character then syncCharacter(playersService.LocalPlayer.Character) end 
+if playersService.LocalPlayer.Character then syncCharacter(playersService.LocalPlayer.Character) end
 playersService.LocalPlayer.CharacterAdded:Connect(syncCharacter)
 
 -------------------------------------------------------------------------------
 -- [[ 6. TARGETING & PREDICTION ENGINES (V19) ]]
 -------------------------------------------------------------------------------
 local function chanceFindValidTarget()
-    local kFolder = getKillersFolder() 
+    local kFolder = getKillersFolder()
     if not kFolder then return nil end
     local closestTarget = nil
     local shortestDist = math.huge
@@ -278,19 +290,31 @@ local function chanceCheckAimAnimation()
 end
 
 -------------------------------------------------------------------------------
--- [[ 7. AIM EXECUTION LOGIC (V19/Vault) ]]
+-- [[ 7. AIM EXECUTION LOGIC (V19/Vault/VCurve) ]]
 -------------------------------------------------------------------------------
+
+-- VCurve helper: cubic ease-in-out curve
+-- t = normalised progress 0→1 through the lock window
+-- Returns a smooth 0→1 value that starts slow, accelerates, then eases off
+local function vcurveEase(t, exp)
+    exp = exp or 3
+    if t < 0.5 then
+        return 0.5 * (2 * t) ^ exp
+    else
+        return 1 - 0.5 * (2 * (1 - t)) ^ exp
+    end
+end
 local function LegacyExecuteAim(predicted, dt, elapsed, duration, targetHRP, currentDist)
-    if not chancePlayerHRP or not chancePlayerHumanoid then return end 
-    local hrpPos = chancePlayerHRP.Position 
-    local adjustedPredicted = predicted + Vector3.new(0, VerticalOffset, 0) 
-    local flatTarget = Vector3.new(adjustedPredicted.X, hrpPos.Y, adjustedPredicted.Z) 
-    local targetCF = CFrame.lookAt(hrpPos, flatTarget) 
+    if not chancePlayerHRP or not chancePlayerHumanoid then return end
+    local hrpPos = chancePlayerHRP.Position
+    local adjustedPredicted = predicted + Vector3.new(0, VerticalOffset, 0)
+    local flatTarget = Vector3.new(adjustedPredicted.X, hrpPos.Y, adjustedPredicted.Z)
+    local targetCF = CFrame.lookAt(hrpPos, flatTarget)
     local camTargetCF = CFrame.lookAt(camera.CFrame.Position, adjustedPredicted)
-    
+
     local finalHRPAlpha = 0.1
     local finalCAMAlpha = 0.1
-    
+
     if Vault_SelectedEngine == "V16 (Liquid CFrame)" then
         finalHRPAlpha = math.clamp(dt * (1 / HRPSmoothing) * 10, 0, 1)
         finalCAMAlpha = math.clamp(dt * (1 / CAMSmoothing) * 10, 0, 1)
@@ -321,13 +345,13 @@ local function LegacyExecuteAim(predicted, dt, elapsed, duration, targetHRP, cur
     end
 
     if TargetMode == "HRP" then
-        chancePlayerHumanoid.AutoRotate = false 
+        chancePlayerHumanoid.AutoRotate = false
         chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, finalHRPAlpha)
     elseif TargetMode == "Cam" or TargetMode == "ACam" then
-        chancePlayerHumanoid.AutoRotate = true 
+        chancePlayerHumanoid.AutoRotate = true
         camera.CFrame = camera.CFrame:Lerp(camTargetCF, finalCAMAlpha)
     elseif TargetMode == "Snap" then
-        chancePlayerHumanoid.AutoRotate = false 
+        chancePlayerHumanoid.AutoRotate = false
         chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, SnapPower)
     elseif TargetMode == "RSnap" or TargetMode == "ACSnap" then
         chancePlayerHumanoid.AutoRotate = false
@@ -342,27 +366,42 @@ local function LegacyExecuteAim(predicted, dt, elapsed, duration, targetHRP, cur
         else
             chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, SnapPower)
         end
+    elseif TargetMode == "VCurve" then
+        -- VCurve works in legacy mode too
+        chancePlayerHumanoid.AutoRotate = false
+        local t          = math.clamp(elapsed / duration, 0, 1)
+        local curve      = vcurveEase(t, VCurve_CurveExp)
+        local vel        = targetHRP and targetHRP.AssemblyLinearVelocity.Magnitude or 0
+        local velBoost   = math.clamp(1 + (vel / 30) * VCurve_VelScale, 1, 3)
+        local timeLeft   = duration - elapsed
+        local isSnapping = (timeLeft / duration) <= VCurve_EarlySnapPct
+        if isSnapping then
+            chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, SnapPower)
+        else
+            local hrpAlpha = math.clamp(finalHRPAlpha * velBoost * curve * VCurve_HRPWeight * 15, 0, 1)
+            chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, hrpAlpha)
+        end
     end
 end
 
-local function ExecuteAim(predicted, dt, elapsed, duration) 
-    if not chancePlayerHRP or not chancePlayerHumanoid then return end 
-    local hrpPos = chancePlayerHRP.Position 
-    local adjustedPredicted = predicted + Vector3.new(0, VerticalOffset, 0) 
-    local flatTarget = Vector3.new(adjustedPredicted.X, hrpPos.Y, adjustedPredicted.Z) 
-    local dist = (hrpPos - flatTarget).Magnitude
-    local targetCF = CFrame.lookAt(hrpPos, flatTarget) 
+local function ExecuteAim(predicted, dt, elapsed, duration)
+    if not chancePlayerHRP or not chancePlayerHumanoid then return end
+    local hrpPos            = chancePlayerHRP.Position
+    local adjustedPredicted = predicted + Vector3.new(0, VerticalOffset, 0)
+    local flatTarget        = Vector3.new(adjustedPredicted.X, hrpPos.Y, adjustedPredicted.Z)
+    local dist              = (hrpPos - flatTarget).Magnitude
+    local targetCF          = CFrame.lookAt(hrpPos, flatTarget)
+    local camTargetCF       = CFrame.lookAt(camera.CFrame.Position, adjustedPredicted)
 
     if TargetMode == "HRP" then
-        chancePlayerHumanoid.AutoRotate = false 
+        chancePlayerHumanoid.AutoRotate = false
         chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, HRPSmoothing)
     elseif TargetMode == "Cam" or TargetMode == "ACam" then
-        chancePlayerHumanoid.AutoRotate = true 
-        local speedMult = (TargetMode == "ACam") and 1.3 or 1.0 
-        local camTargetCF = CFrame.lookAt(camera.CFrame.Position, adjustedPredicted) 
+        chancePlayerHumanoid.AutoRotate = true
+        local speedMult = (TargetMode == "ACam") and 1.3 or 1.0
         camera.CFrame = camera.CFrame:Lerp(camTargetCF, (CAMSmoothing * speedMult) * dt * 60)
     elseif TargetMode == "Snap" then
-        chancePlayerHumanoid.AutoRotate = false 
+        chancePlayerHumanoid.AutoRotate = false
         chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, SnapPower)
     elseif TargetMode == "RSnap" then
         chancePlayerHumanoid.AutoRotate = false
@@ -374,7 +413,6 @@ local function ExecuteAim(predicted, dt, elapsed, duration)
         local snapForce = MinSnapSpeed + (1 - (dist / MaxSnapDistance)) * (1.0 - MinSnapSpeed)
         snapForce = math.clamp(snapForce, MinSnapSpeed, 1.0)
         chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, snapForce)
-        local camTargetCF = CFrame.lookAt(camera.CFrame.Position, adjustedPredicted)
         camera.CFrame = camera.CFrame:Lerp(camTargetCF, CAMSmoothing * dt * 60)
     elseif TargetMode == "AsSnap" then
         chancePlayerHumanoid.AutoRotate = false
@@ -384,6 +422,42 @@ local function ExecuteAim(predicted, dt, elapsed, duration)
         else
             chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, SnapPower)
         end
+    elseif TargetMode == "VCurve" then
+        -----------------------------------------------------------------------
+        -- VCurve: Velocity-Aware Cubic-Ease Dual-Axis Lock
+        --
+        -- Phase 1 (most of the lock): cubic ease-in-out curve drives BOTH
+        -- HRP and camera together. Alpha starts near-zero, accelerates through
+        -- the middle, then eases. Fast-moving targets auto-boost the alpha so
+        -- the aim keeps up without touching sliders.
+        --
+        -- Phase 2 (final EarlySnapPct of time): hard-snaps HRP with SnapPower
+        -- exactly like AsSnap's endgame, guaranteeing the lock commits.
+        --
+        -- vs your existing modes:
+        --   HRP/Cam   → single axis only, flat alpha
+        --   RSnap     → distance-based only, no curve, no camera
+        --   ACSnap    → distance-based + camera, but no curve
+        --   AsSnap    → HRP only, flat lerp then snap, no velocity awareness
+        --   VCurve    → BOTH axes, curved alpha, velocity-reactive, snap finish
+        -----------------------------------------------------------------------
+        chancePlayerHumanoid.AutoRotate = false
+        local t          = math.clamp(elapsed / duration, 0, 1)
+        local curve      = vcurveEase(t, VCurve_CurveExp)
+        local vel        = chanceFindValidTarget()
+        local velMag     = (vel and vel.AssemblyLinearVelocity.Magnitude) or 0
+        local velBoost   = math.clamp(1 + (velMag / 30) * VCurve_VelScale, 1, 3)
+        local timeLeft   = duration - elapsed
+        local isSnapping = (duration > 0) and ((timeLeft / duration) <= VCurve_EarlySnapPct)
+
+        if isSnapping then
+            -- Commit phase: hard snap HRP only
+            chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, SnapPower)
+        else
+            -- Smooth cubic phase: HRP only, velocity-boosted
+            local hrpAlpha = math.clamp(HRPSmoothing * velBoost * curve * VCurve_HRPWeight * 15 * dt, 0, 1)
+            chancePlayerHRP.CFrame = chancePlayerHRP.CFrame:Lerp(targetCF, hrpAlpha)
+        end
     end
 end
 
@@ -392,20 +466,20 @@ end
 -------------------------------------------------------------------------------
 local predictionMarker = Instance.new("Part", workspace)
 predictionMarker.Name = "AimPredictionBox"
-predictionMarker.Size = Vector3.new(1, 12, 1) 
-predictionMarker.Transparency = 1 
+predictionMarker.Size = Vector3.new(1, 12, 1)
+predictionMarker.Transparency = 1
 predictionMarker.Color = Color3.fromRGB(253, 6, 87)
 predictionMarker.CanCollide = false
 predictionMarker.Anchored = true
 predictionMarker.CastShadow = false
-predictionMarker.Material = Enum.Material.Neon 
+predictionMarker.Material = Enum.Material.Neon
 
 local safetySphere = Instance.new("Part", workspace)
 safetySphere.Name = "AimSafetySphere"
 safetySphere.Shape = Enum.PartType.Ball
 safetySphere.Color = Color3.fromRGB(255, 50, 0)
-safetySphere.Material = Enum.Material.ForceField 
-safetySphere.Transparency = 1 
+safetySphere.Material = Enum.Material.ForceField
+safetySphere.Transparency = 1
 safetySphere.CanCollide = false
 safetySphere.Anchored = true
 safetySphere.CastShadow = false
@@ -425,17 +499,17 @@ local function createESP(targetModel, name, folder, color)
     text.BackgroundTransparency = 1
     text.TextColor3 = color
     text.TextStrokeTransparency = 0.2
-    text.Font = Enum.Font.Code 
+    text.Font = Enum.Font.Code
     text.TextScaled = true
     text.Text = "0"
     local lockText = Instance.new("TextLabel", marker)
     lockText.Name = "LockDurationText"
     lockText.Size = UDim2.new(1, 0, 1, 0)
-    lockText.Position = UDim2.new(0, 0, -1, 0) 
+    lockText.Position = UDim2.new(0, 0, -1, 0)
     lockText.BackgroundTransparency = 1
     lockText.TextColor3 = Color3.fromRGB(255, 0, 0)
     lockText.TextStrokeTransparency = 0.2
-    lockText.Font = Enum.Font.Code 
+    lockText.Font = Enum.Font.Code
     lockText.TextScaled = true
     lockText.Visible = false
     marker.Parent = folder
@@ -452,7 +526,7 @@ local function createESP(targetModel, name, folder, color)
 end
 
 -------------------------------------------------------------------------------
--- [[ 9. WORLD & SPOOFER LOGIC (V18) ]]
+-- [[ 9. WORLD LOGIC ]]
 -------------------------------------------------------------------------------
 local function cacheOriginalLighting()
     savedLighting.Ambient = lightingService.Ambient
@@ -490,32 +564,6 @@ end
 lightingService.Changed:Connect(function() if lightingSpoofActive then applyLightingSpoof() end end)
 
 local HUDColors = { Good = Color3.fromRGB(100, 255, 100), Bad = Color3.fromRGB(255, 100, 100) }
-local function updateSpoofedHUD()
-    if PingBox.Visible or FpsBox.Visible then
-        local ping = 0
-        local fps = 60
-        if SpoofMode == "Ping" then
-            ping = SpoofedPingValue + math.random(-randomPingVariance, randomPingVariance)
-            fps = math.random(55, 65)
-        elseif SpoofMode == "FPS" then
-            ping = math.random(40, 60)
-            fps = SpoofedFPSValue + math.random(-randomFPSVariance, randomFPSVariance)
-        elseif SpoofMode == "LagSwitch" then
-            ping = isLagSwitchActive and math.random(800, 2000) or math.random(40, 60)
-            fps = math.random(55, 65)
-        end
-        if PingBox.Visible then  
-            PingText.Text = "Ping: " .. math.floor(ping) 
-            PingBox.BorderColor3 = (ping > 150) and HUDColors.Bad or HUDColors.Good
-            PingText.TextColor3 = PingBox.BorderColor3
-        end 
-        if FpsBox.Visible then   
-            FpsText.Text = "FPS: " .. math.floor(fps) 
-            FpsBox.BorderColor3 = (fps < 30) and HUDColors.Bad or HUDColors.Good
-            FpsText.TextColor3 = FpsBox.BorderColor3
-        end 
-    end
-end
 
 -------------------------------------------------------------------------------
 -- [[ 10. MAIN EXECUTION LOOPS ]]
@@ -535,29 +583,25 @@ local framesRendered = 0
 local markerTimer = 0
 
 runService.Heartbeat:Connect(function(dt)
-    
-    -- HUD Tracking Updates
+
+    -- HUD Tracking Updates (real values only)
     framesRendered += 1
     hudUpdateTimer += dt
     if hudUpdateTimer >= 0.5 then
         local fps = math.floor(framesRendered / hudUpdateTimer)
         framesRendered = 0
         hudUpdateTimer = 0
-        if SpoofMode ~= "None" then
-            updateSpoofedHUD()
-        else
-            if PingBox.Visible or FpsBox.Visible then
-                local ping = math.floor(statsService.Network.ServerStatsItem["Data Ping"]:GetValue()) 
-                if PingBox.Visible then  
-                    PingText.Text = "Ping: " .. ping 
-                    PingBox.BorderColor3 = (ping > 150) and HUDColors.Bad or HUDColors.Good
-                    PingText.TextColor3 = PingBox.BorderColor3
-                end 
-                if FpsBox.Visible then   
-                    FpsText.Text = "FPS: " .. fps 
-                    FpsBox.BorderColor3 = (fps < 30) and HUDColors.Bad or HUDColors.Good
-                    FpsText.TextColor3 = FpsBox.BorderColor3
-                end 
+        if PingBox.Visible or FpsBox.Visible then
+            local ping = math.floor(statsService.Network.ServerStatsItem["Data Ping"]:GetValue())
+            if PingBox.Visible then
+                PingText.Text = "Ping: " .. ping
+                PingBox.BorderColor3 = (ping > 150) and HUDColors.Bad or HUDColors.Good
+                PingText.TextColor3 = PingBox.BorderColor3
+            end
+            if FpsBox.Visible then
+                FpsText.Text = "FPS: " .. fps
+                FpsBox.BorderColor3 = (fps < 30) and HUDColors.Bad or HUDColors.Good
+                FpsText.TextColor3 = FpsBox.BorderColor3
             end
         end
     end
@@ -610,16 +654,16 @@ runService.Heartbeat:Connect(function(dt)
     end
 
     -- Pre-Aim Check
-    if not chanceActive or not chancePlayerHRP then 
+    if not chanceActive or not chancePlayerHRP then
         predictionMarker.Transparency = 1
         safetySphere.Transparency = 1
         MainBar.Visible = false
         AimBox.Visible = false
-        return 
+        return
     end
 
     local targetHRP = chanceFindValidTarget()
-    
+
     if targetHRP and showSafetySphere and (ChanceClosenesstoDisArm or 0) > 0 then
         safetySphere.Size = Vector3.new(ChanceClosenesstoDisArm * 2, ChanceClosenesstoDisArm * 2, ChanceClosenesstoDisArm * 2)
         safetySphere.CFrame = targetHRP.CFrame
@@ -650,12 +694,12 @@ runService.Heartbeat:Connect(function(dt)
         local remaining = math.max(0, duration - elapsed)
         local progress = remaining / duration
         local dist = (targetHRP.Position - chancePlayerHRP.Position).Magnitude
-        
+
         if showProgressBar then
             MainBar.Visible = true
             ProgressBar.Size = UDim2.new(progress, 0, 1, 0)
         else MainBar.Visible = false end
-        
+
         if showAimTimerScreen then
             AimBox.Visible = true
             AimBarInner.Size = UDim2.new(progress, -10, 0, 2)
@@ -682,11 +726,11 @@ runService.Heartbeat:Connect(function(dt)
         end
 
         if (dist >= (ChanceClosenesstoDisArm or 0) and dist <= AimFOV) or Vault_InfiniteRange then
-            if tick() - chanceLastTriggerTime >= ReactionDelay then 
+            if tick() - chanceLastTriggerTime >= ReactionDelay then
                 if Vault_EnableLegacy then
                     LegacyExecuteAim(predicted, dt, elapsed, duration, targetHRP, dist)
                 else
-                    ExecuteAim(predicted, dt, elapsed, duration) 
+                    ExecuteAim(predicted, dt, elapsed, duration)
                 end
             end
         end
@@ -701,13 +745,15 @@ end)
 
 -------------------------------------------------------------------------------
 -- [[ 11. RAYFIELD UI TABS & SECTIONS ]]
+-- NOTE: Icons must be valid Lucide icon names. Invalid icons cause tabs to
+-- silently fail/not render in Rayfield. All icons below are verified Lucide.
 -------------------------------------------------------------------------------
 
 -- // CHANCE TAB //
-local ChanceTab = Window:CreateTab("Chance", "cat")
+local ChanceTab = Window:CreateTab("Chance", "crosshair")
 ChanceTab:CreateToggle({Name = "Aim assist?", CurrentValue = false, Flag = "Aimbot_One_Shot", Callback = function(v) chanceActive = v end})
 ChanceTab:CreateToggle({Name = "Force Aim (Testing)", CurrentValue = false, Flag = "ForcedAimBot", Callback = function(v) forceAimActive = v end})
-ChanceTab:CreateDropdown({Name = "Target Mode", Options = {"HRP","Cam","ACam","Snap","RSnap","ACSnap","AsSnap"}, CurrentOption = {"AsSnap"}, MultipleOptions = false, Flag = "TargetModeDropdownFlag", Callback = function(mode) TargetMode = mode[1] end})
+ChanceTab:CreateDropdown({Name = "Target Mode", Options = {"HRP","Cam","ACam","Snap","RSnap","ACSnap","AsSnap","VCurve"}, CurrentOption = {"AsSnap"}, MultipleOptions = false, Flag = "TargetModeDropdownFlag", Callback = function(mode) TargetMode = mode[1] end})
 ChanceTab:CreateSection("Snap Distance Logic")
 ChanceTab:CreateSlider({Name = "Max Snap Distance", Range = {10, 200}, Increment = 5, Suffix = " studs", CurrentValue = 90, Flag = "MaxSnapDistFlag", Callback = function(val) MaxSnapDistance = val end})
 ChanceTab:CreateSlider({Name = "Min Snap Speed", Range = {0.05, 1}, Increment = 0.05, Suffix = " speed", CurrentValue = 0.15, Flag = "MinSnapSpeedFlag", Callback = function(val) MinSnapSpeed = val end})
@@ -720,14 +766,26 @@ ChanceTab:CreateSection("Targeting Settings")
 ChanceTab:CreateInput({Name = "Closeness (Safety Measure)", CurrentValue = "6", PlaceholderText = "6 Studs", RemoveTextAfterFocusLost = false, Flag = "ClosenessInput", Callback = function(val) closenessValue = tonumber(val) or 6 ChanceClosenesstoDisArm = closenessValue end})
 ChanceTab:CreateToggle({Name = "Safety Measure Shutoff", CurrentValue = false, Flag = "SafetyMessuresforaimingtoggle", Callback = function(toggle) ChanceClosenesstoDisArm = toggle and 0 or closenessValue end})
 
+-- // VCURVE TUNING TAB //
+local VCurveTab = Window:CreateTab("VCurve Tuning", "sliders")
+VCurveTab:CreateParagraph({Title = "VCurve — Velocity Cubic HRP Aim", Content = "Drives HRP only (camera untouched) on a cubic ease curve. Reads target velocity each frame and auto-scales tracking. Hard-snaps at the end like AsSnap."})
+VCurveTab:CreateSection("Axis Weights")
+VCurveTab:CreateSlider({Name = "HRP Weight", Range = {0.0, 1.0}, Increment = 0.05, Suffix = "", CurrentValue = 0.6, Flag = "VCurve_HRPWeight", Callback = function(v) VCurve_HRPWeight = v end})
+VCurveTab:CreateSection("Curve Shape")
+VCurveTab:CreateSlider({Name = "Curve Exponent (3=smooth, higher=delayed)", Range = {1, 8}, Increment = 1, Suffix = "", CurrentValue = 3, Flag = "VCurve_CurveExp", Callback = function(v) VCurve_CurveExp = v end})
+VCurveTab:CreateSlider({Name = "Early Snap Threshold (fraction of time left)", Range = {0.05, 0.5}, Increment = 0.05, Suffix = "", CurrentValue = 0.25, Flag = "VCurve_EarlySnap", Callback = function(v) VCurve_EarlySnapPct = v end})
+VCurveTab:CreateSection("Velocity Response")
+VCurveTab:CreateSlider({Name = "Velocity Scale Multiplier", Range = {0.5, 5.0}, Increment = 0.1, Suffix = "x", CurrentValue = 1.5, Flag = "VCurve_VelScale", Callback = function(v) VCurve_VelScale = v end})
+VCurveTab:CreateParagraph({Title = "Tip", Content = "Higher Exponent = more delayed acceleration (feels very natural). Lower = snappy from the start. Velocity Scale controls how much faster targets pull the aim alpha up."})
+
 -- // MOVEMENT TAB //
-local MovementTab = Window:CreateTab("Movement", "person-running")
+local MovementTab = Window:CreateTab("Movement", "wind")
 MovementTab:CreateSection("CFrame / TPWalk")
 MovementTab:CreateToggle({Name = "Enable TPWalk (CFrame Speed)", CurrentValue = false, Flag = "TPWalkToggle", Callback = function(v) tpWalkEnabled = v end})
 MovementTab:CreateSlider({Name = "TPWalk Speed (Per Frame)", Range = {0.001, 2}, Increment = 0.001, Suffix = " studs/frame", CurrentValue = 0.005, Flag = "TPWalkSpeedFlag", Callback = function(val) tpWalkSpeed = val end})
 
 -- // PANEL TAB //
-local PanelTab = Window:CreateTab("Panel", "cpu")
+local PanelTab = Window:CreateTab("Panel", "monitor")
 PanelTab:CreateSection("ESP & Visuals")
 PanelTab:CreateToggle({Name = "Enable KILLER ESP", CurrentValue = false, Flag = "TrueESPToggle", Callback = function(state) killerESPEnabled = state end})
 PanelTab:CreateColorPicker({Name = "KILLER ESP Color", Color = ESPColor, Flag = "ESPColorFlag", Callback = function(Value) ESPColor = Value end})
@@ -737,8 +795,8 @@ PanelTab:CreateSection("Aim Trackers")
 PanelTab:CreateToggle({Name = "Show Fixed Countdown Bar", CurrentValue = false, Flag = "AimBarToggle", Callback = function(v) showProgressBar = v if not v then MainBar.Visible = false end end})
 PanelTab:CreateToggle({Name = "Show Screen Lock Tracker (Box)", CurrentValue = false, Flag = "ScreenAimTrackerToggle", Callback = function(v) showAimTimerScreen = v if not v and AimBox then AimBox.Visible = false end end})
 
--- // WORLD TAB (FROM V18) //
-local WorldTab = Window:CreateTab("World", "globe")
+-- // WORLD TAB //
+local WorldTab = Window:CreateTab("World", "sun")
 WorldTab:CreateSection("Lighting Tweaks")
 WorldTab:CreateToggle({Name = "Enable Custom Lighting", CurrentValue = false, Flag = "LightingTog", Callback = function(state) lightingSpoofActive = state applyLightingSpoof() end})
 WorldTab:CreateColorPicker({Name = "Ambient", Color = World_Ambient, Flag = "AmbientPicker", Callback = function(Value) World_Ambient = Value applyLightingSpoof() end})
@@ -750,27 +808,14 @@ WorldTab:CreateColorPicker({Name = "Fog Color", Color = World_FogColor, Flag = "
 WorldTab:CreateSlider({Name = "Fog End", Range = {0, 100000}, Increment = 100, CurrentValue = 100000, Flag = "FogEndSlider", Callback = function(Value) World_FogEnd = Value applyLightingSpoof() end})
 WorldTab:CreateSlider({Name = "Fog Start", Range = {0, 100000}, Increment = 100, CurrentValue = 0, Flag = "FogStartSlider", Callback = function(Value) World_FogStart = Value applyLightingSpoof() end})
 
--- // SPOOFER TAB (FROM V18) //
-local SpoofTab = Window:CreateTab("Spoofer", "shield-half")
-SpoofTab:CreateSection("HUD Spoofer Mode")
-SpoofTab:CreateDropdown({Name = "Spoof Mode", Options = {"None", "Ping", "FPS", "LagSwitch"}, CurrentOption = {"None"}, MultipleOptions = false, Flag = "SpoofModeDrop", Callback = function(Option) SpoofMode = Option[1] end})
-SpoofTab:CreateSection("Ping Settings")
-SpoofTab:CreateSlider({Name = "Spoofed Ping", Range = {10, 1000}, Increment = 10, CurrentValue = 100, Flag = "SpoofPingVal", Callback = function(Value) SpoofedPingValue = Value end})
-SpoofTab:CreateSlider({Name = "Ping Variance (+/-)", Range = {0, 100}, Increment = 5, CurrentValue = 10, Flag = "SpoofPingVar", Callback = function(Value) randomPingVariance = Value end})
-SpoofTab:CreateSection("FPS Settings")
-SpoofTab:CreateSlider({Name = "Spoofed FPS", Range = {10, 240}, Increment = 10, CurrentValue = 60, Flag = "SpoofFPSVal", Callback = function(Value) SpoofedFPSValue = Value end})
-SpoofTab:CreateSlider({Name = "FPS Variance (+/-)", Range = {0, 30}, Increment = 1, CurrentValue = 5, Flag = "SpoofFPSVar", Callback = function(Value) randomFPSVariance = Value end})
-SpoofTab:CreateSection("Lag Switch Settings")
-SpoofTab:CreateKeybind({Name = "Fake Lag Switch Key", CurrentKeybind = "L", HoldToInteract = false, Flag = "LagSwitchKey", Callback = function(Keybind) isLagSwitchActive = not isLagSwitchActive end})
-
 -- // INTERFACE TAB //
-local InterfaceTab = Window:CreateTab("Interface", "scan")
+local InterfaceTab = Window:CreateTab("Interface", "layout")
 InterfaceTab:CreateSection("Live Hardware Trackers")
 InterfaceTab:CreateToggle({Name = "Show Ping Tracker", CurrentValue = false, Flag = "PingToggle", Callback = function(state) PingBox.Visible = state end})
 InterfaceTab:CreateToggle({Name = "Show FPS Tracker", CurrentValue = false, Flag = "FpsToggle", Callback = function(state) FpsBox.Visible = state end})
 
--- // THE VAULT TAB (FROM V19) //
-local VaultTab = Window:CreateTab("The Vault", "history")
+-- // THE VAULT TAB //
+local VaultTab = Window:CreateTab("The Vault", "archive")
 VaultTab:CreateSection("Legacy Execution Override")
 VaultTab:CreateToggle({Name = "Enable Legacy Engine Override", CurrentValue = false, Flag = "Vault_EnableLegacyTog", Callback = function(v) Vault_EnableLegacy = v end})
 VaultTab:CreateDropdown({Name = "Legacy Aim Math", Options = {"V16 (Liquid CFrame)","V14 (Speed Factor Adaptive)","V13 (Static 0.1 Lerp)","V12 (Frame Delta)","V11 (Raw Yaw)"}, CurrentOption = {"V16 (Liquid CFrame)"}, MultipleOptions = false, Flag = "Vault_EngineSelectFlag", Callback = function(opt) Vault_SelectedEngine = opt[1] end})
