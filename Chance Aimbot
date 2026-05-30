@@ -1,6 +1,7 @@
 -- local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/RF2/refs/heads/main/RF2_Mod_v1.1'))()
-
+-- https://raw.githubusercontent.com/ParallaxCube/Skitten-Chance-6.80-/refs/heads/ChanceAimbot/Chance%20Aimbot
+-- loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/Skitten-Chance-6.80-/refs/heads/ChanceAimbot/Chance%20Aimbot'))()
 -------------------------------------------------------------------------------
 -- [[ 1. SERVICES ]]
 -------------------------------------------------------------------------------
