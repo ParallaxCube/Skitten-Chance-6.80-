@@ -1,5 +1,5 @@
--- local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/RF2/refs/heads/main/RF2_Mod_v1.1'))()
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/RF2/refs/heads/main/RF2_Mod_v1.1'))()
 -- https://raw.githubusercontent.com/ParallaxCube/Skitten-Chance-6.80-/refs/heads/ChanceAimbot/Chance%20Aimbot
 -- loadstring(game:HttpGet('https://raw.githubusercontent.com/ParallaxCube/Skitten-Chance-6.80-/refs/heads/ChanceAimbot/Chance%20Aimbot'))()
 -------------------------------------------------------------------------------
@@ -20,16 +20,27 @@ local camera              = workspaceService.CurrentCamera
 -- [[ 2. CONFIGURATION TABLES ]]
 -------------------------------------------------------------------------------
 local chanceAimTargets = {
-    "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1",
-    "Noli", "Sixer", "Nosferatu"
+   "Slasher",  -- Valid
+  "c00lkidd",  -- Valid
+   "JohnDoe",  -- Valid
+   "1x1x1x1",  -- Valid
+      "Noli",  -- Valid
+     "Sixer",  -- Valid
+ "Nosferatu",  -- Valid
+     "Azure"   -- Attempted
 }
-
-local chanceAimAnimationIds = {
-    "111384272984267", "133491532453922", "133607163653602",
-    "131189930305001", "76649505662612", "103601716322988",
-    "74687476269316", "111512633767170", "81698196845041", "86371356500204",
+local chanceAimAnimationIds = {  
+ "111384272984267",--[[ Big Game Hunter]]
+ "133491532453922",--[[ Chance (M1-M2) ]] 
+ "133607163653602",--[[ Chance (M3-M4) ]]
+ "131189930305001",--[[    Nutcracker  ]] 
+ "76649505662612", --[[    MLG Chance  ]]
+ "103601716322988",--[[      Outlaw    ]]
+ "86371356500204", --[[      Retro     ]]
+ "74687476269316", --[[     Unknown    ]]
+ "111512633767170",--[[     Unknown    ]] 
+ "81698196845041", --[[     Unknown    ]]
 }
-
 -------------------------------------------------------------------------------
 -- [[ 3. VARIABLE DECLARATIONS (V19 / Core) ]]
 -------------------------------------------------------------------------------
