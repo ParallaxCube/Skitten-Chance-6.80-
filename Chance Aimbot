@@ -134,11 +134,11 @@ local PingBox, FpsBox, PingText, FpsText
 -------------------------------------------------------------------------------
 -- [[ 3.6 VCURVE & BACKSNAP SETTINGS ]]
 -------------------------------------------------------------------------------
-local VCurve_HRPWeight    = 0.6
-local VCurve_CAMWeight    = 0.4
+local VCurve_HRPWeight    = 1
+local VCurve_CAMWeight    = 1
 local VCurve_VelScale     = 1.5
 local VCurve_CurveExp     = 3
-local VCurve_EarlySnapPct = 0.25
+local VCurve_EarlySnapPct = 0.4
 
 -- BackSnap: how long (seconds) before end the snap fires
 local BackSnap_SnapWindow = 0.3
@@ -147,17 +147,17 @@ local BackSnap_SnapWindow = 0.3
 -- [[ 4. RAYFIELD UI SETUP ]]
 -------------------------------------------------------------------------------
 local Window = Rayfield:CreateWindow({
-    Name = "Master Combine (V18 + V19 Vault)",
+    Name = "Chance aim v99",
     Icon = "crosshair",
-    LoadingTitle = "Loading Aimbot...",
+    LoadingTitle = "Loading",
     LoadingSubtitle = "by Iamskitten",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = true,
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "cAIM_Config",
-        FileName = "cAIM_Combined"
+        FolderName = "cAIM_Config23pi5p9",
+        FileName = "cAIM_Combined339025"
     },
 })
 
