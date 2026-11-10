@@ -27,7 +27,8 @@ local chanceAimTargets = {
       "Noli",  -- Valid
      "Sixer",  -- Valid
  "Nosferatu",  -- Valid
-     "Azure"   -- Attempted
+     "Azure",   -- Attempted
+"Azurewrath"    -- Attempted
 }
 local chanceAimAnimationIds = {  
  "111384272984267",--[[ Big Game Hunter]]
@@ -49,7 +50,7 @@ local SnapPower                 = 1.0
 local VerticalOffset            = 0
 local extraStuds                = 0
 local ChanceClosenesstoDisArm   = 0
-local MaxSnapDistance           = 140
+local MaxSnapDistance           = 90
 local MinSnapSpeed              = 1
 local useRawPing                = false
 local tpWalkEnabled             = false
@@ -58,7 +59,7 @@ local AimFOV                    = 100
 local HitChance                 = 100
 local ReactionDelay             = 0
 local ShakeReduction            = 0
-local MinFPS                    = 30
+local MinFPS                    = 100
 local SmartSwitch               = false
 local chancePredictionMode      = "Ping Only"
 local CustomStudsAddedToPing    = 0
